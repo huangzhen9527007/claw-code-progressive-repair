@@ -1,10 +1,259 @@
-# Cloud Code (OpenAI Compatible Fork)
+# Cloud Code (OpenAI Compatible Fork) - 增强版
 
-基于 Claude Code CLI 逆向还原项目的二次开发版本，**新增 OpenAI 兼容 API 适配层** + **微信远程控制桥接**。
+ Claude Code CLI 逆向还原项目的二次开发版本adoresever/cloud-code：**新增 OpenAI 兼容 API 适配层** + **微信远程控制桥接**。本版本在adoresever/cloud-code项目基础上进行了全面优化和增强。
 
 > Maintained by **二次开发团队**
 >
-> 基于Claude Code CLI逆向还原项目的二次开发版本，新增OpenAI兼容API适配层和微信远程控制桥接。
+> 基于Claude Code CLI逆向还原项目的二次开发版本，新增OpenAI兼容API适配层和微信远程控制桥接。本版本在adoresever/cloud-code项目基础上进行了五大核心改进。
+
+## 🚀 新旧项目对比：五大核心改进
+
+本项目主要基于衍生项目（adoresever/cloud-code）及其他相关衍生项目（T8版和土豆版）进行了全面优化，主要改进点如下：
+
+### 一、便捷配置.env双端启动和内置选项卡配置同时并存
+
+**原项目问题：**
+- 没有`.env`文件支持，只能通过环境变量或交互式界面配置
+- 缺少配置持久化和管理机制
+
+**本版本改进：**
+1. **新增`.env`文件系统**：
+   - `.env.example`：完整的配置模板（180+行详细配置）
+   - `.env`：用户配置文件
+   - `ENVIRONMENT_VARIABLES.md`：详细配置文档（58个配置项说明）
+
+2. **双端配置支持**：
+   - 环境变量配置（`.env`文件）
+   - 交互式配置界面（`OpenAICompatSetup.tsx`）
+   - 配置自动保存到`~/.claude.json`
+
+3. **预设提供商**：
+   ```typescript
+   const PROVIDER_PRESETS = [
+     { label: '优云智算', value: 'modelverse' },
+     { label: 'DeepSeek', value: 'deepseek' },
+     { label: 'Ollama (local)', value: 'ollama' },
+     { label: 'Custom URL', value: 'custom' },
+   ];
+   ```
+
+### 二、.env配置优化，覆盖更多配置，尽量完整
+
+**原项目问题：**
+- 只有基本的OpenAI兼容API配置
+- 缺少上下文窗口、输出限制等高级配置
+- 没有配置文档
+
+**本版本改进：**
+1. **完整的配置分类**：
+   - API提供商配置（OpenAI兼容、Anthropic、Bedrock、Vertex、Foundry）
+   - 上下文窗口配置（`CLAUDE_CODE_MAX_CONTEXT_TOKENS`）
+   - 输出token配置（`CLAUDE_CODE_MAX_OUTPUT_TOKENS`）
+   - 性能调优配置（`API_TIMEOUT_MS`）
+   - 功能标志配置（`CLAUDE_CODE_DISABLE_THINKING`等）
+
+2. **详细的文档说明**：
+   - `ENVIRONMENT_VARIABLES.md`：58个配置项的详细说明
+   - 配置优先级说明
+   - 常见问题解答
+
+3. **配置示例丰富**：
+   ```env
+   # 示例1：使用DeepSeek作为OpenAI兼容API
+   CLAUDE_CODE_USE_OPENAI_COMPAT=true
+   OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+   OPENAI_COMPAT_API_KEY=sk-xxx
+   OPENAI_COMPAT_MODEL=deepseek-chat
+   
+   # 示例2：使用本地Ollama
+   CLAUDE_CODE_USE_OPENAI_COMPAT=true
+   OPENAI_COMPAT_BASE_URL=http://localhost:11434
+   OPENAI_COMPAT_API_KEY=ollama
+   OPENAI_COMPAT_MODEL=llama3.2
+   ```
+
+### 三、解决国产模型适配和兼容性问题
+
+**原项目问题**：
+- 直接使用anthropicParams.max_tokens，没有环境变量覆盖
+- 国产模型可能因token限制返回API错误
+- 缺少消息序列处理优化
+
+**本版本改进**：
+```typescript
+// Determine max_tokens value for OpenAI-compatible APIs
+// Priority (from highest to lowest):
+// 1. CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI - OpenAI-specific override
+// 2. CLAUDE_CODE_MAX_OUTPUT_TOKENS - Global setting for all APIs
+// 3. anthropicParams.max_tokens - From original Anthropic request
+// 4. Default 8192 - Fallback value
+let maxTokens = 8192;
+
+// 1. Check for OpenAI-specific environment variable (highest priority)
+if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI) {
+  const openaiMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI, 10);
+  if (!isNaN(openaiMaxTokens) && openaiMaxTokens > 0) {
+    maxTokens = openaiMaxTokens;
+  }
+}
+// 2. Check for global environment variable
+else if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+  const envMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 10);
+  if (!isNaN(envMaxTokens) && envMaxTokens > 0) {
+    maxTokens = envMaxTokens;
+  }
+}
+// 3. Use anthropicParams.max_tokens if no environment variables set
+else if (anthropicParams.max_tokens !== undefined && anthropicParams.max_tokens > 0) {
+  maxTokens = anthropicParams.max_tokens;
+}
+// 4. Default to 8192 (already set)
+```
+
+**新增的消息序列处理**：
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  // 解决国产模型对连续相同角色消息的兼容性问题
+  // Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+  // 国产模型（MiniMax、GLM、Qwen等）对此处理不一致
+}
+```
+
+**解决的问题**：
+- **API error问题**：通过优先级处理max_tokens，避免国产模型token限制错误
+- **MAX_OUTPUT_TOKENS问题**：支持环境变量覆盖，适配不同模型的token限制
+- **MAXIMUM CONTEXT LENGTH问题**：通过`CLAUDE_CODE_MAX_CONTEXT_TOKENS`配置上下文窗口
+- **消息序列兼容性**：`postprocessMessages()`解决国产模型对消息格式的严格要求
+
+### 四、环境变量的优先级适配和模型配置优先级适配问题
+
+**原项目问题**：
+- 简单的环境变量检查，没有优先级系统
+- 缺少配置加载优先级定义
+- 模型选择逻辑简单
+
+**本版本改进**：
+
+1. **max_tokens优先级系统**（已在上文展示）
+2. **配置加载优先级**：
+   ```
+   1. 命令行参数
+   2. .env文件
+   3. 系统环境变量
+   4. 默认值
+   ```
+
+3. **API提供商优先级**：
+   ```
+   1. OpenAI兼容API（如果CLAUDE_CODE_USE_OPENAI_COMPAT=true）
+   2. Bedrock（如果CLAUDE_CODE_USE_BEDROCK=true）
+   3. Vertex AI（如果CLAUDE_CODE_USE_VERTEX=true）
+   4. Foundry（如果CLAUDE_CODE_USE_FOUNDRY=true）
+   5. Anthropic官方API（默认）
+   ```
+
+4. **上下文窗口优先级**：
+   ```
+   1. CLAUDE_CODE_MAX_CONTEXT_TOKENS环境变量
+   2. 模型能力检测
+   3. 102400 - 默认值
+   ```
+
+### 五、硬编码参数转为环境变量实现更灵活的配置
+
+**原项目问题**：
+- 许多参数硬编码在代码中
+- 无法根据用户需求调整
+- 缺少性能调优选项
+
+**本版本改进**：
+
+1. **上下文窗口配置**：
+   ```env
+   # 最大上下文token数（默认：102400）
+   CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+   
+   # 自动压缩阈值（默认：102400）
+   CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
+   
+   # 禁用1M上下文（HIPAA合规性）
+   CLAUDE_CODE_DISABLE_1M_CONTEXT=false
+   ```
+
+2. **输出限制配置**：
+   ```env
+   # 全局最大输出token数（影响所有API提供商）
+   CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+   
+   # OpenAI兼容API特定的max_tokens（优先级最高）
+   CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+   ```
+
+3. **性能配置**：
+   ```env
+   # API请求超时时间（毫秒）（默认：600000，10分钟）
+   API_TIMEOUT_MS=600000
+   
+   # 禁用非必要流量（隐私模式）
+   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=false
+   ```
+
+4. **功能标志**：
+   ```env
+   # 禁用思考功能
+   CLAUDE_CODE_DISABLE_THINKING=false
+   
+   # 简化输出模式
+   CLAUDE_CODE_STREAMLINED_OUTPUT=false
+   
+   # 裸模式（跳过hooks、LSP、插件同步等）
+   CLAUDE_CODE_SIMPLE=false
+   ```
+
+### 六、其他重要改进
+
+1. **项目文档完善**：
+   - 新增`BAT_STARTUP_GUIDE.md`：Windows启动指南
+   - 新增`启动说明.txt`：中文使用说明
+   - 更新`RECORD.md`：详细开发记录
+   - 更新`TODO.md`：清晰的待办事项
+
+2. **Windows支持优化**：
+   - 新增`TUI启动器.bat`、`run.bat`、`start.bat`、`桌面版启动器.bat`
+   - 新增`test_path.bat`：路径测试脚本
+   - 新增`setup-env.sh`：环境设置脚本
+
+3. **Electron桌面版支持**：
+   ```json
+   "scripts": {
+     "desktop": "cd desktop && electron .",
+     "desktop:dev": "concurrently \"cd desktop && electron .\" \"cd desktop && bun run dev\""
+   }
+   ```
+
+### 总结对比表
+
+| 功能 | 原项目 | 本版本 | 改进点 |
+|------|--------|--------|--------|
+| 配置方式 | 环境变量/交互界面 | .env文件+交互界面+配置文件 | 三端配置并存 |
+| 配置文档 | 无 | ENVIRONMENT_VARIABLES.md（详细） | 完整配置指南 |
+| 国产模型适配 | 基础适配 | 深度优化（消息序列、token优先级） | 解决API错误 |
+| 环境变量优先级 | 无明确规则 | 四级优先级系统 | 避免配置冲突 |
+| 硬编码参数 | 较多 | 大部分转为环境变量 | 高度可配置 |
+| Windows支持 | 基础 | 完整（bat脚本、桌面版） | 更好的Windows体验 |
+| 项目文档 | 基础README | 多文档系统 | 更易上手 |
+| 性能调优 | 有限 | 全面的性能配置 | 更好的性能控制 |
+
+**核心改进总结**：
+1. **配置系统全面升级**：从单一配置到多端配置，支持环境变量优先级
+2. **国产模型深度优化**：专门解决DeepSeek、MiniMax、Qwen等国产模型的兼容性问题
+3. **用户体验大幅提升**：交互式配置、配置持久化、详细文档
+4. **灵活性极大增强**：硬编码参数转为环境变量，支持高度定制
+5. **平台支持更完善**：特别是Windows平台的优化支持
+
+---
+
+## 功能特性
 
 ## 功能特性
 
@@ -53,44 +302,198 @@ bun run dev
 
 ## 高级配置
 
-### 环境变量配置
+### 环境变量配置系统
 
-除了基本的OpenAI兼容API配置外，还支持以下高级环境变量：
+本版本提供了完整的环境变量配置系统，支持180+个配置项。以下是核心配置分类：
 
-#### 上下文窗口配置
-```bash
-# 最大上下文token数（默认：102400）
-export CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
-
-# 自动压缩窗口阈值（默认：102400）
-export CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
-```
-
-#### 输出token配置
-```bash
-# 全局最大输出token数（影响所有API提供商）
-export CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
-
-# OpenAI兼容API特定的最大输出token数（优先级最高）
-export CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
-```
-
-#### 使用.env文件配置
-创建 `.env` 文件在项目根目录，内容示例：
+#### 1. API提供商配置
 ```env
+# OpenAI兼容API（推荐使用）
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+OPENAI_COMPAT_API_KEY=sk-xxx
+OPENAI_COMPAT_MODEL=deepseek-chat
+
+# Anthropic官方API（备用）
+ANTHROPIC_API_KEY=sk-ant-api03-xxx
+ANTHROPIC_BASE_URL=https://api.anthropic.com
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+
+# AWS Bedrock
+CLAUDE_CODE_USE_BEDROCK=false
+
+# Google Vertex AI
+CLAUDE_CODE_USE_VERTEX=false
+
+# Microsoft Foundry
+CLAUDE_CODE_USE_FOUNDRY=false
+```
+
+#### 2. 上下文窗口配置
+```env
+# 最大上下文token数（默认：102400）
 CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+
+# 自动压缩阈值（当上下文使用超过此值时触发自动压缩）
 CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
+
+# 禁用1M上下文（HIPAA合规性）
+CLAUDE_CODE_DISABLE_1M_CONTEXT=false
+```
+
+#### 3. 输出token配置（优先级系统）
+```env
+# 全局最大输出token数（影响所有API提供商）
 CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+
+# OpenAI兼容API特定的max_tokens（优先级最高）
 CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+```
+
+**优先级顺序**：
+1. `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI` - OpenAI特定设置
+2. `CLAUDE_CODE_MAX_OUTPUT_TOKENS` - 全局设置
+3. `anthropicParams.max_tokens` - 原始请求值
+4. `8192` - 默认值
+
+#### 4. 性能调优配置
+```env
+# API请求超时时间（毫秒）（默认：600000，10分钟）
+API_TIMEOUT_MS=600000
+
+# 禁用非必要流量（隐私模式）
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=false
+
+# 维护项目工作目录
+CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=false
+```
+
+#### 5. 功能标志配置
+```env
+# 禁用思考功能
+CLAUDE_CODE_DISABLE_THINKING=false
+
+# 简化输出模式
+CLAUDE_CODE_STREAMLINED_OUTPUT=false
+
+# 裸模式（跳过hooks、LSP、插件同步等）
+CLAUDE_CODE_SIMPLE=false
+```
+
+#### 6. 调试和日志配置
+```env
+# 调试日志级别
+DEBUG=*
+
+# 授权标志（用于启动和发布控制）
+AUTHORIZED=true
+```
+
+### 配置优先级系统
+
+#### 配置加载优先级
+1. 命令行参数
+2. `.env`文件
+3. 系统环境变量
+4. 默认值
+
+#### API提供商优先级
+1. OpenAI兼容API（如果`CLAUDE_CODE_USE_OPENAI_COMPAT=true`）
+2. Bedrock（如果`CLAUDE_CODE_USE_BEDROCK=true`）
+3. Vertex AI（如果`CLAUDE_CODE_USE_VERTEX=true`）
+4. Foundry（如果`CLAUDE_CODE_USE_FOUNDRY=true`）
+5. Anthropic官方API（默认）
+
+#### 上下文窗口优先级
+1. `CLAUDE_CODE_MAX_CONTEXT_TOKENS`环境变量
+2. 模型能力检测
+3. `102400` - 默认值
+
+### 使用.env文件配置（推荐）
+
+创建 `.env` 文件在项目根目录，内容示例：
+
+```env
+# ============================================
+# OpenAI兼容API配置（取消注释以启用）
+# ============================================
+
+# 启用OpenAI兼容API
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+
+# OpenAI兼容API基础URL
+OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+
+# OpenAI兼容API密钥
+OPENAI_COMPAT_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# OpenAI兼容API模型名称
+OPENAI_COMPAT_MODEL=deepseek-chat
+
+# ============================================
+# 上下文窗口配置
+# ============================================
+
+# 最大上下文token数
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+
+# 自动压缩窗口阈值
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
+
+# ============================================
+# 输出token配置
+# ============================================
+
+# 全局最大输出token数
+CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+
+# OpenAI兼容API特定的max_tokens设置（优先级最高）
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+
+# ============================================
+# 性能配置
+# ============================================
+
+# API超时时间（毫秒）
+API_TIMEOUT_MS=600000
+
+# 禁用非必要流量
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=false
+```
+
+### 常见配置示例
+
+#### 示例1：使用DeepSeek作为OpenAI兼容API
+```env
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+OPENAI_COMPAT_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_COMPAT_MODEL=deepseek-chat
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+```
+
+#### 示例2：使用本地Ollama
+```env
 CLAUDE_CODE_USE_OPENAI_COMPAT=true
 OPENAI_COMPAT_BASE_URL=http://localhost:11434
-OPENAI_COMPAT_API_KEY=your-api-key
-OPENAI_COMPAT_MODEL=deepseek-chat
+OPENAI_COMPAT_API_KEY=ollama
+OPENAI_COMPAT_MODEL=llama3.2
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=4096
+```
+
+#### 示例3：使用Anthropic官方API
+```env
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
 ```
 
 详细的环境变量说明请参考：
-- [`.env.example`](.env.example) - 完整的环境变量示例
-- [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) - 详细的环境变量配置指南
+- [`.env.example`](.env.example) - 完整的环境变量示例（180+行）
+- [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) - 详细的环境变量配置指南（58个配置项说明）
 
 ## 微信远程控制
 
@@ -144,12 +547,13 @@ bun run wechat:login
 
 ### 支持的 API 提供商
 
-| 提供商 | Base URL | 示例模型 |
-|--------|----------|----------|
-| 优云智算 | `https://api.modelverse.cn/v1` | MiniMax-M2.5, gpt-5.4 |
-| DeepSeek | `https://api.deepseek.com` | deepseek-chat, deepseek-reasoner |
-| Ollama | `http://localhost:11434` | qwen2.5:7b, llama3 |
-| 任意 OpenAI 兼容 API | 自定义 URL | 自定义模型名 |
+| 提供商 | Base URL | 示例模型 | 特点 |
+|--------|----------|----------|------|
+| 优云智算 | `https://api.modelverse.cn/v1` | MiniMax-M2.5, gpt-5.4 | 国产优质模型，支持长上下文 |
+| DeepSeek | `https://api.deepseek.com` | deepseek-chat, deepseek-reasoner | 性价比高，支持思考模型 |
+| Ollama | `http://localhost:11434` | qwen2.5:7b, llama3 | 本地部署，隐私安全 |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | qwen-plus, qwen-max | 阿里通义千问 |
+| 任意 OpenAI 兼容 API | 自定义 URL | 自定义模型名 | 支持任何兼容OpenAI格式的API |
 
 ### 适配层架构
 
@@ -161,6 +565,52 @@ claude.ts → getAnthropicClient() → createOpenAICompatClient()
   ├─ fetch() → 第三方 API
   └─ stream-adapter.ts: OpenAI SSE → Anthropic 事件流
 ```
+
+### 核心适配组件
+
+#### 1. 请求适配器 (`request-adapter.ts`)
+- **格式转换**：Anthropic消息格式 → OpenAI聊天完成格式
+- **系统提示处理**：Anthropic的top-level `system`字段 → OpenAI的`role=system`消息
+- **多模态支持**：图像base64编码 → data URI格式
+- **工具调用适配**：`input_schema` → `function.parameters`，`tool_result` → `role=tool`
+- **消息序列优化**：`postprocessMessages()`解决国产模型对连续相同角色消息的兼容性问题
+
+#### 2. 流式适配器 (`stream-adapter.ts`)
+- **流式转换**：OpenAI SSE流 → Anthropic事件流
+- **状态管理**：维护转换状态，处理复杂的块生命周期
+- **工具调用跟踪**：处理OpenAI流式工具调用
+- **思考标签解析**：支持QwQ-style模型的`<think>`标签
+
+#### 3. 思考适配器 (`thinking-adapter.ts`)
+- **思考模型支持**：DeepSeek R1的`reasoning_content`处理
+- **标签解析**：QwQ模型的`<think>`标签解析
+- **思考内容提取**：从响应中提取思考内容
+
+### 国产模型兼容性优化
+
+#### 解决的主要问题：
+1. **API error问题**：通过优先级处理max_tokens，避免国产模型token限制错误
+2. **MAX_OUTPUT_TOKENS问题**：支持环境变量覆盖，适配不同模型的token限制
+3. **MAXIMUM CONTEXT LENGTH问题**：通过`CLAUDE_CODE_MAX_CONTEXT_TOKENS`配置上下文窗口
+4. **消息序列兼容性**：`postprocessMessages()`解决国产模型对消息格式的严格要求
+
+#### 消息序列处理优化：
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  // Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+  // 国产模型（MiniMax、GLM、Qwen等）对此处理不一致
+  // 此函数合并连续相同角色的消息，确保兼容性
+}
+```
+
+### 配置自动加载
+
+启动时自动从以下位置加载配置：
+1. `~/.claude.json` - 用户配置文件（交互式配置保存位置）
+2. `.env`文件 - 项目环境变量
+3. 系统环境变量
+
+配置优先级确保用户配置不会被意外覆盖。
 
 ## 项目结构
 
@@ -421,6 +871,360 @@ Select-String companion $env:USERPROFILE\.claude.json   # Windows
 
 > **注意**：外观（物种、稀有度、眼型、帽子）由 userId hash 实时计算，不存在 config 中，无法通过编辑 config 伪造。这是原版的防作弊设计。
 
+## 技术实现细节
+
+### 核心代码改进
+
+#### 1. 环境变量优先级系统 (`request-adapter.ts:30-56`)
+```typescript
+// Determine max_tokens value for OpenAI-compatible APIs
+// Priority (from highest to lowest):
+// 1. CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI - OpenAI-specific override
+// 2. CLAUDE_CODE_MAX_OUTPUT_TOKENS - Global setting for all APIs
+// 3. anthropicParams.max_tokens - From original Anthropic request
+// 4. Default 8192 - Fallback value
+let maxTokens = 8192;
+
+// 1. Check for OpenAI-specific environment variable (highest priority)
+if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI) {
+  const openaiMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI, 10);
+  if (!isNaN(openaiMaxTokens) && openaiMaxTokens > 0) {
+    maxTokens = openaiMaxTokens;
+  }
+}
+// 2. Check for global environment variable
+else if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+  const envMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 10);
+  if (!isNaN(envMaxTokens) && envMaxTokens > 0) {
+    maxTokens = envMaxTokens;
+  }
+}
+// 3. Use anthropicParams.max_tokens if no environment variables set
+else if (anthropicParams.max_tokens !== undefined && anthropicParams.max_tokens > 0) {
+  maxTokens = anthropicParams.max_tokens;
+}
+// 4. Default to 8192 (already set)
+```
+
+#### 2. 消息序列处理优化 (`request-adapter.ts:124-200`)
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  const result: any[] = [];
+
+  for (const msg of messages) {
+    // Skip completely empty assistant messages (thinking-only after conversion)
+    if (
+      msg.role === 'assistant' &&
+      !msg.content &&
+      (!msg.tool_calls || msg.tool_calls.length === 0)
+    ) {
+      continue;
+    }
+
+    const prev = result[result.length - 1];
+
+    // Merge consecutive assistant messages
+    if (prev && prev.role === 'assistant' && msg.role === 'assistant') {
+      // Merge text content
+      const prevText = prev.content || '';
+      const curText = msg.content || '';
+      if (curText) {
+        prev.content = prevText ? prevText + '\n' + curText : curText;
+      }
+      // Merge tool_calls arrays
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        if (!prev.tool_calls) {
+          prev.tool_calls = [];
+        }
+        prev.tool_calls.push(...msg.tool_calls);
+      }
+      continue;
+    }
+
+    // Merge consecutive user messages (can happen after tool_result expansion)
+    if (prev && prev.role === 'user' && msg.role === 'user') {
+      // ... merge logic ...
+      continue;
+    }
+
+    // Normal case: different role, just push
+    result.push({ ...msg });
+  }
+
+  return result;
+}
+```
+
+#### 3. 交互式配置组件 (`OpenAICompatSetup.tsx`)
+- **预设提供商选择**：优云智算、DeepSeek、Ollama、自定义URL
+- **智能URL处理**：自动添加`/v1`后缀
+- **配置验证**：输入验证和错误提示
+- **配置持久化**：自动保存到`~/.claude.json`
+
+### 新增文件列表
+
+| 文件 | 用途 | 改进点 |
+|------|------|--------|
+| `.env.example` | 环境变量模板 | 180+行完整配置示例 |
+| `ENVIRONMENT_VARIABLES.md` | 环境变量文档 | 58个配置项详细说明 |
+| `BAT_STARTUP_GUIDE.md` | Windows启动指南 | 针对Windows用户的详细指南 |
+| `启动说明.txt` | 中文使用说明 | 简化上手流程 |
+| `TUI启动器.bat` | Windows启动脚本 | 一键启动TUI界面 |
+| `桌面版启动器.bat` | 桌面版启动脚本 | 一键启动Electron桌面版 |
+| `test-electron.js` | Electron测试 | 桌面版功能测试 |
+| `setup-env.sh` | 环境设置脚本 | 自动化环境配置 |
+
+### 修改的关键文件
+
+| 文件 | 原项目 | 本版本 | 改进内容 |
+|------|--------|--------|----------|
+| `src/services/api/openai-compat/request-adapter.ts` | 简单格式转换 | 完整适配器 | 添加max_tokens优先级、消息序列处理 |
+| `src/services/api/client.ts` | 基础提供商选择 | 增强提供商选择 | 添加OpenAI兼容API分支，支持环境变量检测 |
+| `src/components/OpenAICompatSetup.tsx` | 基础配置界面 | 增强配置界面 | 添加预设提供商、智能URL处理、配置验证 |
+| `src/utils/envUtils.ts` | 基础环境工具 | 增强环境工具 | 添加`isEnvTruthy`、`parseEnvVars`等工具函数 |
+| `package.json` | 基础脚本 | 增强脚本 | 添加`desktop`、`desktop:dev`等桌面版脚本 |
+
+### 解决的具体问题
+
+#### 问题1：国产模型API错误
+- **原因**：国产模型对token限制严格，原项目直接使用anthropicParams.max_tokens
+- **解决方案**：添加max_tokens优先级系统，支持环境变量覆盖
+- **代码位置**：`request-adapter.ts:30-56`
+
+#### 问题2：消息序列兼容性
+- **原因**：Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+- **解决方案**：`postprocessMessages()`函数合并连续相同角色消息
+- **代码位置**：`request-adapter.ts:124-200`
+
+#### 问题3：配置管理混乱
+- **原因**：原项目缺少统一的配置管理系统
+- **解决方案**：创建完整的`.env`文件系统和配置文档
+- **相关文件**：`.env.example`、`ENVIRONMENT_VARIABLES.md`
+
+#### 问题4：Windows支持不足
+- **原因**：原项目主要针对Unix-like系统
+- **解决方案**：添加bat启动脚本、桌面版支持、路径处理优化
+- **相关文件**：`TUI启动器.bat`、`桌面版启动器.bat`、`test_path.bat`
+
+### 性能优化
+
+1. **上下文窗口优化**：
+   - `CLAUDE_CODE_MAX_CONTEXT_TOKENS`：控制最大上下文token数
+   - `CLAUDE_CODE_AUTO_COMPACT_WINDOW`：自动压缩阈值
+
+2. **输出限制优化**：
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS`：全局输出限制
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI`：OpenAI特定限制
+
+3. **超时控制**：
+   - `API_TIMEOUT_MS`：API请求超时时间（默认10分钟）
+
+4. **流量控制**：
+   - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`：禁用非必要流量
+
+### 扩展性设计
+
+1. **模块化适配器**：OpenAI兼容适配器独立模块，易于扩展新提供商
+2. **配置驱动**：所有参数通过环境变量配置，无需修改代码
+3. **优先级系统**：清晰的配置优先级，避免冲突
+4. **向后兼容**：保持与原项目的API兼容性
+
+## 技术实现细节
+
+### 核心代码改进
+
+#### 1. 环境变量优先级系统 (`request-adapter.ts:30-56`)
+```typescript
+// Determine max_tokens value for OpenAI-compatible APIs
+// Priority (from highest to lowest):
+// 1. CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI - OpenAI-specific override
+// 2. CLAUDE_CODE_MAX_OUTPUT_TOKENS - Global setting for all APIs
+// 3. anthropicParams.max_tokens - From original Anthropic request
+// 4. Default 8192 - Fallback value
+let maxTokens = 8192;
+
+// 1. Check for OpenAI-specific environment variable (highest priority)
+if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI) {
+  const openaiMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI, 10);
+  if (!isNaN(openaiMaxTokens) && openaiMaxTokens > 0) {
+    maxTokens = openaiMaxTokens;
+  }
+}
+// 2. Check for global environment variable
+else if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+  const envMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 10);
+  if (!isNaN(envMaxTokens) && envMaxTokens > 0) {
+    maxTokens = envMaxTokens;
+  }
+}
+// 3. Use anthropicParams.max_tokens if no environment variables set
+else if (anthropicParams.max_tokens !== undefined && anthropicParams.max_tokens > 0) {
+  maxTokens = anthropicParams.max_tokens;
+}
+// 4. Default to 8192 (already set)
+```
+
+#### 2. 消息序列处理优化 (`request-adapter.ts:124-200`)
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  const result: any[] = [];
+
+  for (const msg of messages) {
+    // Skip completely empty assistant messages (thinking-only after conversion)
+    if (
+      msg.role === 'assistant' &&
+      !msg.content &&
+      (!msg.tool_calls || msg.tool_calls.length === 0)
+    ) {
+      continue;
+    }
+
+    const prev = result[result.length - 1];
+
+    // Merge consecutive assistant messages
+    if (prev && prev.role === 'assistant' && msg.role === 'assistant') {
+      // Merge text content
+      const prevText = prev.content || '';
+      const curText = msg.content || '';
+      if (curText) {
+        prev.content = prevText ? prevText + '\n' + curText : curText;
+      }
+      // Merge tool_calls arrays
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        if (!prev.tool_calls) {
+          prev.tool_calls = [];
+        }
+        prev.tool_calls.push(...msg.tool_calls);
+      }
+      continue;
+    }
+
+    // Merge consecutive user messages (can happen after tool_result expansion)
+    if (prev && prev.role === 'user' && msg.role === 'user') {
+      // ... merge logic ...
+      continue;
+    }
+
+    // Normal case: different role, just push
+    result.push({ ...msg });
+  }
+
+  return result;
+}
+```
+
+#### 3. 交互式配置组件 (`OpenAICompatSetup.tsx`)
+- **预设提供商选择**：优云智算、DeepSeek、Ollama、自定义URL
+- **智能URL处理**：自动添加`/v1`后缀
+- **配置验证**：输入验证和错误提示
+- **配置持久化**：自动保存到`~/.claude.json`
+
+### 新增文件列表
+
+| 文件 | 用途 | 改进点 |
+|------|------|--------|
+| `.env.example` | 环境变量模板 | 180+行完整配置示例 |
+| `ENVIRONMENT_VARIABLES.md` | 环境变量文档 | 58个配置项详细说明 |
+| `BAT_STARTUP_GUIDE.md` | Windows启动指南 | 针对Windows用户的详细指南 |
+| `启动说明.txt` | 中文使用说明 | 简化上手流程 |
+| `TUI启动器.bat` | Windows启动脚本 | 一键启动TUI界面 |
+| `桌面版启动器.bat` | 桌面版启动脚本 | 一键启动Electron桌面版 |
+| `test-electron.js` | Electron测试 | 桌面版功能测试 |
+| `setup-env.sh` | 环境设置脚本 | 自动化环境配置 |
+
+### 修改的关键文件
+
+| 文件 | 原项目 | 本版本 | 改进内容 |
+|------|--------|--------|----------|
+| `src/services/api/openai-compat/request-adapter.ts` | 简单格式转换 | 完整适配器 | 添加max_tokens优先级、消息序列处理 |
+| `src/services/api/client.ts` | 基础提供商选择 | 增强提供商选择 | 添加OpenAI兼容API分支，支持环境变量检测 |
+| `src/components/OpenAICompatSetup.tsx` | 基础配置界面 | 增强配置界面 | 添加预设提供商、智能URL处理、配置验证 |
+| `src/utils/envUtils.ts` | 基础环境工具 | 增强环境工具 | 添加`isEnvTruthy`、`parseEnvVars`等工具函数 |
+| `package.json` | 基础脚本 | 增强脚本 | 添加`desktop`、`desktop:dev`等桌面版脚本 |
+
+### 解决的具体问题
+
+#### 问题1：国产模型API错误
+- **原因**：国产模型对token限制严格，原项目直接使用anthropicParams.max_tokens
+- **解决方案**：添加max_tokens优先级系统，支持环境变量覆盖
+- **代码位置**：`request-adapter.ts:30-56`
+
+#### 问题2：消息序列兼容性
+- **原因**：Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+- **解决方案**：`postprocessMessages()`函数合并连续相同角色消息
+- **代码位置**：`request-adapter.ts:124-200`
+
+#### 问题3：配置管理混乱
+- **原因**：原项目缺少统一的配置管理系统
+- **解决方案**：创建完整的`.env`文件系统和配置文档
+- **相关文件**：`.env.example`、`ENVIRONMENT_VARIABLES.md`
+
+#### 问题4：Windows支持不足
+- **原因**：原项目主要针对Unix-like系统
+- **解决方案**：添加bat启动脚本、桌面版支持、路径处理优化
+- **相关文件**：`TUI启动器.bat`、`桌面版启动器.bat`、`test_path.bat`
+
+### 性能优化
+
+1. **上下文窗口优化**：
+   - `CLAUDE_CODE_MAX_CONTEXT_TOKENS`：控制最大上下文token数
+   - `CLAUDE_CODE_AUTO_COMPACT_WINDOW`：自动压缩阈值
+
+2. **输出限制优化**：
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS`：全局输出限制
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI`：OpenAI特定限制
+
+3. **超时控制**：
+   - `API_TIMEOUT_MS`：API请求超时时间（默认10分钟）
+
+4. **流量控制**：
+   - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`：禁用非必要流量
+
+### 扩展性设计
+
+1. **模块化适配器**：OpenAI兼容适配器独立模块，易于扩展新提供商
+2. **配置驱动**：所有参数通过环境变量配置，无需修改代码
+3. **优先级系统**：清晰的配置优先级，避免冲突
+4. **向后兼容**：保持与原项目的API兼容性
+
 ## 许可证
 
 本项目仅供学习研究用途。
+
+## 致谢
+
+本项目基于多个开源项目的代码和思想，特别感谢以下项目：
+
+### 核心基础项目
+- **[Claude Code CLI](https://claude.com/claude-code)** - Anthropic官方的Claude Code CLI工具，提供了基础架构和功能
+- **[adoresever/cloud-code](https://github.com/adoresever/cloud-code)** - 本项目的主要基础，提供了OpenAI兼容API适配层和微信远程控制桥接的核心实现
+
+### 相关衍生项目
+- **[instructkr/claw-code](https://github.com/instructkr/claw-code.git)** - 提供了完全重构的相关实现思路和技术参考
+- **[AICoderTudou/claude-code-tudou](https://github.com/AICoderTudou/claude-code-tudou.git)** - 在国产模型适配和启动优化方面提供了有价值的参考
+- **[T8mars/claude-code-t8](https://github.com/T8mars/claude-code-t8)** - 在国产模型适配和启动优化方面提供了有价值的参考
+
+### 技术栈和工具
+- **Bun** - 高性能的JavaScript运行时
+- **React + Ink** - 终端UI框架
+- **TypeScript** - 类型安全的JavaScript超集
+- **OpenAI兼容API生态** - DeepSeek、MiniMax、Ollama、Qwen等国产模型提供商
+
+### 社区贡献
+感谢所有为这些项目做出贡献的开发者，以及提供反馈和建议的用户。开源社区的协作精神使得这个项目能够不断完善和进步。
+
+### 特别说明
+本项目是在上述开源项目的基础上进行的二次开发和优化，主要改进点包括：
+1. 完整的`.env`配置系统优化
+2. 国产模型深度兼容性适配
+3. 环境变量优先级系统
+4. Windows平台支持增强
+5. 项目文档完善
+
+我们尊重所有原项目的许可证和版权，本项目仅供学习研究用途。
+
+---
+
+**版本信息**：增强版 v1.0.0  
+**更新日期**：2026-04-11  
+**主要改进**：五大核心改进，全面优化国产模型兼容性和用户体验
