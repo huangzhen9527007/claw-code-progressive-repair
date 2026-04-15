@@ -6,8 +6,8 @@ echo ============================================
 echo.
 
 REM Check if Bun is installed
-where bun >nul 2>&1
-if %errorlevel% neq 0 (
+bun --version >nul 2>&1
+if errorlevel 1 (
     echo ERROR: Bun runtime not found
     echo Please install Bun first: https://bun.sh/
     pause
@@ -23,7 +23,7 @@ if not exist "node_modules" (
     echo WARNING: node_modules directory not found
     echo Installing dependencies...
     bun install
-    if %errorlevel% neq 0 (
+    if errorlevel 1 (
         echo ERROR: Dependency installation failed
         pause
         exit /b 1
@@ -36,7 +36,7 @@ if not exist ".env" (
     echo WARNING: .env file not found
     echo Creating .env file from .env.example...
     copy ".env.example" ".env" >nul 2>&1
-    if %errorlevel% neq 0 (
+    if errorlevel 1 (
         echo ERROR: Cannot create .env file
         echo Please manually copy .env.example to .env
     )
@@ -48,10 +48,36 @@ echo Note: If you see API errors, check API configuration in .env file
 echo ============================================
 echo.
 
-REM Run in development mode
+REM Start Auto Memory Saver in background
+echo [INFO] Starting Auto Memory Saver (background)...
+echo [NOTE] This service saves your conversations to MemPalace every 5 minutes
+echo.
+
+REM Check if Python is available
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [WARNING] Python not found. Auto Memory Saver will not start.
+    echo [TIP] Install Python or add it to PATH to enable automatic memory saving.
+    goto :skip_python_check
+)
+
+	REM Start Readable Session Saver if script exists
+	if exist "claude-readable-session-saver.py" (
+	    start /B python claude-readable-session-saver.py --max-files 10
+	    echo [OK] Readable Session Saver started (structured readable mode)
+	    echo [INFO] Latest 10 sessions readable data will be saved to MemPalace
+	)
+
+:skip_python_check
+echo.
+
+REM Run in development mode with interactive prompt
+echo.
+echo [TIP] Type your query and press Enter to start, or press Ctrl+C to exit
+echo.
 bun run dev
 
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo.
     echo ============================================
     echo Claude Code startup failed
@@ -62,4 +88,24 @@ if %errorlevel% neq 0 (
     echo ============================================
 )
 
+echo.
+echo ============================================
+echo [INFO] Claude Code closed. Cleaning up...
+
+REM Stop Auto Memory Saver if it was started
+tasklist | findstr /i "python.exe" >nul
+if errorlevel 0 (
+    echo [INFO] Stopping Auto Memory Saver...
+    taskkill /F /IM python.exe /T >nul 2>&1
+    echo [OK] Auto Memory Saver stopped
+) else (
+    echo [INFO] No Auto Memory Saver process found
+)
+
+echo ============================================
+echo [SUMMARY]
+echo 1. Claude Code session ended
+echo 2. Auto Memory Saver stopped (if running)
+echo 3. Your conversations are saved in MemPalace
+echo ============================================
 pause

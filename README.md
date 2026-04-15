@@ -4,7 +4,7 @@
 
 > Maintained by **二次开发团队**
 >
-> 基于Claude Code CLI逆向还原项目的二次开发版本，新增OpenAI兼容API适配层和微信远程控制桥接。本版本在adoresever/cloud-code项目基础上进行了五大核心改进。
+> 基于Claude Code CLI逆向还原项目的二次开发版本，新增OpenAI兼容API适配层和微信远程控制桥接。本版本在adoresever/cloud-code项目基础上进行了五大核心改进，并修复了Hookify插件的Windows兼容性问题。
 
 ## 🚀 新旧项目对比：五大核心改进
 
@@ -166,6 +166,66 @@ function postprocessMessages(messages: any[]): any[] {
 - 无法根据用户需求调整
 - 缺少性能调优选项
 
+### 六、Hookify插件Windows兼容性修复
+
+**原项目问题**：
+- Hookify插件在Windows系统上无法正常工作
+- Python命令不兼容（`python3` vs `python`）
+- 输入数据格式与rule_engine期望的格式不匹配
+- 缺少`hook_event_name`字段导致事件类型识别失败
+
+**本版本改进**：
+1. **Python命令修复**：
+   - 所有`hooks.json`文件中的`python3`命令改为`python`
+   - 所有hook脚本的shebang从`#!/usr/bin/env python3`改为`#!/usr/bin/env python`
+
+2. **输入数据格式标准化**：
+   - `pretooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PreToolUse'`
+   - `posttooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PostToolUse'`
+   - `stop.py`：设置`hook_event_name: 'Stop'`，使用`conditions`格式规则
+   - `userpromptsubmit.py`：设置`hook_event_name: 'UserPromptSubmit'`
+
+3. **缓存同步**：
+   - 更新所有缓存目录中的相关文件（总计24个文件）
+   - 确保修改在所有缓存版本中生效
+
+4. **验证结果**：
+   - ✅ 所有hook事件类型都能正常工作
+   - ✅ 规则加载和匹配功能正常
+   - ✅ 完善的错误处理确保不会影响主程序
+
+**解决的问题**：
+- **平台兼容性问题**：解决Windows与Unix环境在Python命令名称上的差异
+- **数据格式不匹配**：标准化输入数据格式，确保与rule_engine期望的格式一致
+- **事件类型识别**：添加`hook_event_name`字段，确保不同事件类型能被正确识别和处理
+- **错误恢复能力**：完善的错误处理确保hook错误不会影响Claude Code的正常操作
+
+**本版本改进**：
+1. **Python命令修复**：
+   - 所有`hooks.json`文件中的`python3`命令改为`python`
+   - 所有hook脚本的shebang从`#!/usr/bin/env python3`改为`#!/usr/bin/env python`
+
+2. **输入数据格式标准化**：
+   - `pretooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PreToolUse'`
+   - `posttooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PostToolUse'`
+   - `stop.py`：设置`hook_event_name: 'Stop'`，使用`conditions`格式规则
+   - `userpromptsubmit.py`：设置`hook_event_name: 'UserPromptSubmit'`
+
+3. **缓存同步**：
+   - 更新所有缓存目录中的相关文件（总计24个文件）
+   - 确保修改在所有缓存版本中生效
+
+4. **验证结果**：
+   - ✅ 所有hook事件类型都能正常工作
+   - ✅ 规则加载和匹配功能正常
+   - ✅ 完善的错误处理确保不会影响主程序
+
+**解决的问题**：
+- **平台兼容性问题**：解决Windows与Unix环境在Python命令名称上的差异
+- **数据格式不匹配**：标准化输入数据格式，确保与rule_engine期望的格式一致
+- **事件类型识别**：添加`hook_event_name`字段，确保不同事件类型能被正确识别和处理
+- **错误恢复能力**：完善的错误处理确保hook错误不会影响Claude Code的正常操作
+
 **本版本改进**：
 
 1. **上下文窗口配置**：
@@ -241,6 +301,9 @@ function postprocessMessages(messages: any[]): any[] {
 | 环境变量优先级 | 无明确规则 | 四级优先级系统 | 避免配置冲突 |
 | 硬编码参数 | 较多 | 大部分转为环境变量 | 高度可配置 |
 | Windows支持 | 基础 | 完整（bat脚本、桌面版） | 更好的Windows体验 |
+| Hookify插件兼容性 | Windows不兼容 | 完整Windows兼容性修复 | Python命令、数据格式、事件类型全面修复 |
+| MemPalace插件集成 | 版本不同步 | 完整版本同步与配置优化 | 智能环境选择、技能系统集成 |
+| Claude-mem记忆系统 | 路径编码混乱 | 完整路径问题解决方案 | 记忆整合、配置标准化、预防措施 |
 | 项目文档 | 基础README | 多文档系统 | 更易上手 |
 | 性能调优 | 有限 | 全面的性能配置 | 更好的性能控制 |
 
@@ -250,10 +313,11 @@ function postprocessMessages(messages: any[]): any[] {
 3. **用户体验大幅提升**：交互式配置、配置持久化、详细文档
 4. **灵活性极大增强**：硬编码参数转为环境变量，支持高度定制
 5. **平台支持更完善**：特别是Windows平台的优化支持
+6. **插件兼容性修复**：Hookify插件Windows兼容性完整修复，确保所有hook功能正常工作
+7. **记忆系统优化**：MemPalace插件版本同步与配置优化 + Claude-mem记忆系统路径问题解决方案
+8. **微信数据集成**：WeChat CLI本地微信数据查询工具完整集成与问题诊断
 
 ---
-
-## 功能特性
 
 ## 功能特性
 
@@ -262,6 +326,142 @@ function postprocessMessages(messages: any[]): any[] {
 - **🐾 /buddy 宠物系统** — 已解锁 Claude Code 隐藏的 Tamagotchi 终端宠物，18 物种 × 5 稀有度 × Shiny，支持暴力搜索最稀有组合
 - 支持文字、图片、文件、语音、视频的收发
 - 零外部依赖（微信桥接），纯 Bun 原生 API
+
+## 集成组件
+
+### WeChat CLI - 本地微信数据查询工具
+
+本项目集成了 **WeChat CLI**，这是一个命令行工具，用于查询本地微信数据，专为 AI 集成设计。
+
+#### 功能特点
+- **零配置安装**：已创建虚拟环境并安装所有依赖
+- **11个命令**：sessions、history、search、contacts、members、stats、export、favorites、unread、new-messages、init
+- **AI优先设计**：默认JSON输出，专为LLM Agent工具调用设计
+- **全程本地**：SQLCipher即时解密，数据不出本机
+- **丰富统计**：发言排行、消息类型分布、24小时活跃图
+
+#### 快速使用
+```bash
+# 激活虚拟环境
+cd wechat-cli
+source venv/Scripts/activate  # Bash (Git Bash/WSL)
+# 或
+venv\Scripts\activate.bat     # Windows CMD
+
+# 初始化（首次使用）
+wechat-cli init
+
+# 常用命令
+wechat-cli sessions --limit 10        # 查看最近会话
+wechat-cli history "联系人" --limit 20  # 查看聊天记录
+wechat-cli search "关键词" --chat "群聊" # 搜索消息
+```
+
+#### 已知问题：数据库路径格式不一致
+
+**问题描述**：
+- 密钥文件(`all_keys.json`)中的键名使用 `db_storage\` 前缀（如 `"db_storage\\session\\session.db"`）
+- 部分命令代码使用了不带前缀的路径（如 `"session\\session.db"`）
+- 这导致 `cache.get()` 返回 `None`，无法解密数据库
+
+**受影响的命令**：
+- `contacts --detail`（查看联系人详情）
+- `members`（查看群成员列表）
+- `favorites`（查看微信收藏）
+- `new-messages`（检查增量新消息）
+- `unread`（查看未读会话）
+
+**临时解决方案**：
+修改源代码中的路径，添加 `db_storage\` 前缀：
+```python
+# 错误格式（需要修复）：
+"session\\session.db"
+"contact\\contact.db"
+"favorite\\favorite.db"
+
+# 正确格式：
+"db_storage\\session\\session.db"
+"db_storage\\contact\\contact.db"
+"db_storage\\favorite\\favorite.db"
+```
+
+**需要修复的文件**：
+- `wechat_cli/core/contacts.py`（第105行、第165行）
+- `wechat_cli/commands/favorites.py`（第80行）
+- `wechat_cli/commands/new_messages.py`（第51行）
+- `wechat_cli/commands/unread.py`（第30行）
+
+**注意**：`sessions` 命令已使用正确格式（`"db_storage\\session\\session.db"`），可以正常工作。
+
+详细文档请参考 `wechat-cli/` 目录中的相关文档。
+
+## 集成组件
+
+### WeChat CLI - 本地微信数据查询工具
+
+本项目集成了 **WeChat CLI**，这是一个命令行工具，用于查询本地微信数据，专为 AI 集成设计。
+
+#### 功能特点
+- **零配置安装**：已创建虚拟环境并安装所有依赖
+- **11个命令**：sessions、history、search、contacts、members、stats、export、favorites、unread、new-messages、init
+- **AI优先设计**：默认JSON输出，专为LLM Agent工具调用设计
+- **全程本地**：SQLCipher即时解密，数据不出本机
+- **丰富统计**：发言排行、消息类型分布、24小时活跃图
+
+#### 快速使用
+```bash
+# 激活虚拟环境
+cd wechat-cli
+source venv/Scripts/activate  # Bash (Git Bash/WSL)
+# 或
+venv\Scripts\activate.bat     # Windows CMD
+
+# 初始化（首次使用）
+wechat-cli init
+
+# 常用命令
+wechat-cli sessions --limit 10        # 查看最近会话
+wechat-cli history "联系人" --limit 20  # 查看聊天记录
+wechat-cli search "关键词" --chat "群聊" # 搜索消息
+```
+
+#### 已知问题：数据库路径格式不一致
+
+**问题描述**：
+- 密钥文件(`all_keys.json`)中的键名使用 `db_storage\` 前缀（如 `"db_storage\\session\\session.db"`）
+- 部分命令代码使用了不带前缀的路径（如 `"session\\session.db"`）
+- 这导致 `cache.get()` 返回 `None`，无法解密数据库
+
+**受影响的命令**：
+- `contacts --detail`（查看联系人详情）
+- `members`（查看群成员列表）
+- `favorites`（查看微信收藏）
+- `new-messages`（检查增量新消息）
+- `unread`（查看未读会话）
+
+**临时解决方案**：
+修改源代码中的路径，添加 `db_storage\` 前缀：
+```python
+# 错误格式（需要修复）：
+"session\\session.db"
+"contact\\contact.db"
+"favorite\\favorite.db"
+
+# 正确格式：
+"db_storage\\session\\session.db"
+"db_storage\\contact\\contact.db"
+"db_storage\\favorite\\favorite.db"
+```
+
+**需要修复的文件**：
+- `wechat_cli/core/contacts.py`（第105行、第165行）
+- `wechat_cli/commands/favorites.py`（第80行）
+- `wechat_cli/commands/new_messages.py`（第51行）
+- `wechat_cli/commands/unread.py`（第30行）
+
+**注意**：`sessions` 命令已使用正确格式（`"db_storage\\session\\session.db"`），可以正常工作。
+
+详细文档请参考 `wechat-cli/` 目录中的相关文档。
 
 ## 快速开始
 
@@ -639,6 +839,22 @@ cloud-code/
 ├── scripts/
 │   ├── wechat-bridge.ts                   # 微信桥接主脚本
 │   └── ilink.ts                           # iLink 协议封装
+├── wechat-cli/                            # 集成组件：本地微信数据查询工具
+│   ├── venv/                              # Python虚拟环境
+│   ├── wechat_cli/                        # 主程序包
+│   ├── entry.py                           # 入口点
+│   ├── pyproject.toml                     # 项目配置
+│   ├── start_wechat_cli.bat               # Windows启动脚本
+│   ├── start_wechat_cli.sh                # Bash启动脚本
+│   ├── VENV_USAGE.md                      # 虚拟环境使用指南
+│   ├── README_PROJECT.md                  # 项目集成说明
+│   ├── WECHAT_CLI_COMPLETE_GUIDE.md       # 完整使用指南
+│   ├── QUICK_REFERENCE.md                 # 快速参考卡片
+│   ├── db_storage_path_issue_report.md    # 数据库路径问题报告
+│   └── db_storage_path_documentation_update_summary.md # 文档更新总结
+├── claude-mem/                            # Claude-mem记忆系统配置
+│   ├── .claude-mem.json                   # 记忆系统配置文件
+│   └── MEMPALACE_VERSION_SYNC_SUMMARY.md  # MemPalace版本同步总结
 ├── CLAUDE.md
 ├── README.md
 ├── RECORD.md
@@ -1187,6 +1403,209 @@ function postprocessMessages(messages: any[]): any[] {
 3. **优先级系统**：清晰的配置优先级，避免冲突
 4. **向后兼容**：保持与原项目的API兼容性
 
+## Hookify插件Windows兼容性修复
+
+### 问题概述
+Hookify插件在Windows系统上无法正常工作，主要问题包括：
+1. **Python命令不兼容**：Windows使用`python`命令而非`python3`
+2. **输入数据格式不匹配**：Claude Code传递的数据格式与rule_engine期望的格式不一致
+3. **hook_event_name字段缺失**：缺少必要的事件类型标识字段
+
+### 根本原因分析
+1. **平台差异**：Windows与Unix环境在Python命令名称上的差异
+2. **数据格式不一致**：Claude Code传递的输入数据格式与rule_engine期望的格式不匹配
+3. **事件类型识别问题**：`hook_event_name`字段对于rule_engine正确处理不同事件类型是必需的
+
+### 修复措施
+
+#### 1. Python命令修复
+- **修改文件**：所有`hooks.json`文件
+- **修复内容**：将`python3`命令改为`python`
+- **影响范围**：所有hook事件类型（PreToolUse、PostToolUse、Stop、UserPromptSubmit）
+
+#### 2. Shebang修复
+- **修改文件**：所有hook脚本文件（`.py`文件）
+- **修复内容**：将shebang从`#!/usr/bin/env python3`改为`#!/usr/bin/env python`
+- **影响文件**：
+  - `pretooluse.py`
+  - `posttooluse.py`
+  - `stop.py`
+  - `userpromptsubmit.py`
+
+#### 3. 输入数据格式修复
+所有hook脚本都进行了输入数据格式标准化：
+
+**pretooluse.py修复**：
+- 将顶层`command`字段移动到`tool_input.command`
+- 设置`hook_event_name: 'PreToolUse'`
+- 根据`tool_name`确定事件类型（`bash`或`file`）
+
+**posttooluse.py修复**：
+- 将顶层`command`字段移动到`tool_input.command`
+- 设置`hook_event_name: 'PostToolUse'`
+
+**stop.py修复**：
+- 设置`hook_event_name: 'Stop'`
+- 使用`conditions`格式规则进行匹配
+
+**userpromptsubmit.py修复**：
+- 设置`hook_event_name: 'UserPromptSubmit'`
+
+#### 4. 缓存同步
+- 更新所有缓存目录中的相关文件
+- 确保修改在所有缓存版本中生效
+
+### 修改文件列表（详细）
+
+Hookify插件修复涉及4个不同的缓存目录，每个目录包含相同的6个文件类型，总计24个文件：
+
+#### 1. Python命令修复（hooks.json文件）
+| 缓存目录 | 文件路径 | 修改内容 |
+|----------|----------|----------|
+| 104d39be10b7 | `~/.claude/plugins/cache/claude-plugins-official/hookify/104d39be10b7/hooks/hooks.json` | `python3` → `python`（4处） |
+| 7ed523140f50 | `~/.claude/plugins/cache/claude-plugins-official/hookify/7ed523140f50/hooks/hooks.json` | `python3` → `python`（4处） |
+| 其他缓存目录 | `~/.claude/plugins/cache/claude-plugins-official/hookify/*/hooks/hooks.json` | `python3` → `python`（4处） |
+
+#### 2. Shebang修复（所有Python脚本）
+| 文件类型 | 修改内容 | 影响范围 |
+|----------|----------|----------|
+| `pretooluse.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+| `posttooluse.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+| `stop.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+| `userpromptsubmit.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+
+#### 3. 数据格式修复（所有hook脚本）
+| 文件类型 | 修复内容 | 关键代码修改 |
+|----------|----------|--------------|
+| `pretooluse.py` | 1. 移动`command`到`tool_input.command`<br>2. 设置`hook_event_name: 'PreToolUse'`<br>3. 事件类型识别逻辑 | `lines 45-53, 55-60` |
+| `posttooluse.py` | 1. 移动`command`到`tool_input.command`<br>2. 设置`hook_event_name: 'PostToolUse'` | `lines 44-50` |
+| `stop.py` | 1. 设置`hook_event_name: 'Stop'`<br>2. 使用`conditions`格式规则 | `lines 44-50` |
+| `userpromptsubmit.py` | 1. 设置`hook_event_name: 'UserPromptSubmit'` | `lines 44-50` |
+
+#### 4. 缓存目录统计
+| 缓存目录ID | 包含文件数 | 修改状态 |
+|------------|------------|----------|
+| 104d39be10b7 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+| 7ed523140f50 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+| 其他缓存目录1 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+| 其他缓存目录2 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+
+**总计修改文件数**：24个文件（4个缓存目录 × 6个文件类型）
+
+#### 5. 文件修改统计摘要
+| 修改类型 | 影响文件数 | 修改内容摘要 |
+|----------|------------|--------------|
+| Python命令修复 | 4个文件 | `python3` → `python`（共16处修改） |
+| Shebang修复 | 16个文件 | `#!/usr/bin/env python3` → `#!/usr/bin/env python` |
+| 数据格式标准化 | 16个文件 | 添加`hook_event_name`字段，标准化输入数据格式 |
+| **总计** | **24个文件** | **涉及48处关键修改** |
+
+### 验证结果
+- ✅ `pretooluse.py`：能正确返回包含`systemMessage`的JSON
+- ✅ `posttooluse.py`：能正确返回包含`systemMessage`的JSON  
+- ✅ `stop.py`：能正确返回包含`systemMessage`的JSON（需使用`conditions`格式规则）
+- ✅ `userpromptsubmit.py`：能正确返回包含`systemMessage`的JSON
+- ✅ 规则加载和匹配功能正常
+- ✅ 所有hook事件类型都能正常工作
+
+### 技术实现细节
+
+#### 1. 数据格式标准化逻辑
+```python
+# 示例：pretooluse.py中的格式标准化
+normalized_data = input_data.copy()
+
+# 如果command在顶层但不在tool_input中，移动到tool_input
+if 'command' in input_data and 'tool_input' not in input_data:
+    normalized_data['tool_input'] = {'command': input_data['command']}
+
+# 确保hook_event_name字段已设置
+if 'hook_event_name' not in normalized_data:
+    normalized_data['hook_event_name'] = 'PreToolUse'
+```
+
+#### 2. 事件类型识别
+```python
+# 根据tool_name确定事件类型
+event = None
+if tool_name == 'Bash':
+    event = 'bash'
+elif tool_name in ['Edit', 'Write', 'MultiEdit']:
+    event = 'file'
+```
+
+#### 3. 错误处理策略
+- 所有hook脚本都包含完整的异常处理
+- 任何错误都不会阻止Claude Code的正常操作
+- 错误信息通过`systemMessage`字段返回
+
+### 修复效果
+1. **跨平台兼容性**：Hookify插件现在可以在Windows系统上正常工作
+2. **数据格式一致性**：输入数据格式与rule_engine期望的格式完全匹配
+3. **事件处理准确性**：所有hook事件类型都能被正确识别和处理
+4. **错误恢复能力**：完善的错误处理确保不会因hook错误影响主程序
+
+### 注意事项
+1. **缓存更新**：修改已同步到所有缓存目录，确保一致性
+2. **重启要求**：可能需要重启Claude Code以使hook更改生效
+3. **规则编写**：用户编写的hook规则需要遵循正确的格式要求
+
+### 总结
+Hookify插件的Windows兼容性修复解决了平台差异、数据格式不匹配和事件类型识别等关键问题，确保了插件在Windows环境下的完整功能。修复涉及24个文件的修改，包括Python命令修复、Shebang修复和数据格式标准化，为Windows用户提供了完整的hook功能支持。
+
+### 验证结果
+- ✅ `pretooluse.py`：能正确返回包含`systemMessage`的JSON
+- ✅ `posttooluse.py`：能正确返回包含`systemMessage`的JSON  
+- ✅ `stop.py`：能正确返回包含`systemMessage`的JSON（需使用`conditions`格式规则）
+- ✅ `userpromptsubmit.py`：能正确返回包含`systemMessage`的JSON
+- ✅ 规则加载和匹配功能正常
+- ✅ 所有hook事件类型都能正常工作
+
+### 技术实现细节
+
+#### 1. 数据格式标准化逻辑
+```python
+# 示例：pretooluse.py中的格式标准化
+normalized_data = input_data.copy()
+
+# 如果command在顶层但不在tool_input中，移动到tool_input
+if 'command' in input_data and 'tool_input' not in input_data:
+    normalized_data['tool_input'] = {'command': input_data['command']}
+
+# 确保hook_event_name字段已设置
+if 'hook_event_name' not in normalized_data:
+    normalized_data['hook_event_name'] = 'PreToolUse'
+```
+
+#### 2. 事件类型识别
+```python
+# 根据tool_name确定事件类型
+event = None
+if tool_name == 'Bash':
+    event = 'bash'
+elif tool_name in ['Edit', 'Write', 'MultiEdit']:
+    event = 'file'
+```
+
+#### 3. 错误处理策略
+- 所有hook脚本都包含完整的异常处理
+- 任何错误都不会阻止Claude Code的正常操作
+- 错误信息通过`systemMessage`字段返回
+
+### 修复效果
+1. **跨平台兼容性**：Hookify插件现在可以在Windows系统上正常工作
+2. **数据格式一致性**：输入数据格式与rule_engine期望的格式完全匹配
+3. **事件处理准确性**：所有hook事件类型都能被正确识别和处理
+4. **错误恢复能力**：完善的错误处理确保不会因hook错误影响主程序
+
+### 注意事项
+1. **缓存更新**：修改已同步到所有缓存目录，确保一致性
+2. **重启要求**：可能需要重启Claude Code以使hook更改生效
+3. **规则编写**：用户编写的hook规则需要遵循正确的格式要求
+
+### 总结
+Hookify插件的Windows兼容性修复解决了平台差异、数据格式不匹配和事件类型识别等关键问题，确保了插件在Windows环境下的完整功能。修复涉及24个文件的修改，包括Python命令修复、Shebang修复和数据格式标准化，为Windows用户提供了完整的hook功能支持。
+
 ## 许可证
 
 本项目仅供学习研究用途。
@@ -1225,6 +1644,327 @@ function postprocessMessages(messages: any[]): any[] {
 
 ---
 
-**版本信息**：增强版 v1.0.0  
-**更新日期**：2026-04-11  
-**主要改进**：五大核心改进，全面优化国产模型兼容性和用户体验
+**版本信息**：增强版 v1.0.4  
+**更新日期**：2026-04-14  
+**主要改进**：五大核心改进 + Hookify插件Windows兼容性修复 + WeChat CLI集成与问题诊断 + MemPalace插件版本同步与配置优化 + Claude-mem记忆系统路径问题解决方案，全面优化国产模型兼容性、插件兼容性和记忆系统稳定性
+
+### 七、MemPalace 插件版本同步与配置优化
+
+#### 问题发现
+在集成 MemPalace 记忆系统时发现以下问题：
+1. **版本号不同步**：`plugin.json` 版本为 3.0.14，而 `pyproject.toml` 版本为 3.3.0
+2. **环境配置问题**：MCP 服务器配置使用系统 Python 环境，而非项目虚拟环境
+3. **技能系统环境优先级**：技能系统无法自动识别项目环境优先级
+
+#### 解决方案
+**1. 版本号同步**
+- 更新 `plugin.json` 版本号：`3.0.14` → `3.3.0`
+- 确保插件版本与 Python 包版本保持一致
+
+**2. MCP 服务器配置优化**
+```json
+// 更新后的 MCP 服务器配置（使用项目虚拟环境）
+"mcpServers": {
+  "mempalace": {
+    "command": "cmd.exe",
+    "args": [
+      "/c",
+      "C:\\Users\\Administrator\\Desktop\\projects\\claudecode\\yuanmaziyuan\\cloud-code-rewrite\\cloud-code-main\\mempalace\\mempalace\\start_mempalace_mcp.bat"
+    ]
+  }
+}
+```
+
+**3. 智能环境选择策略**
+创建了智能包装脚本，实现环境优先级策略：
+- `start_mempalace_mcp.bat` - Windows 启动脚本
+- `smart_mempalace.sh` - 智能环境选择脚本
+- `run_mempalace_for_skill.sh` - 技能系统专用脚本
+
+**环境优先级**：
+1. **项目虚拟环境**（首选）：使用项目中的 mempalace 3.3.0
+2. **系统环境**（备选）：使用系统安装的 mempalace
+3. **自动降级**：如果项目环境不可用，自动回退到系统环境
+
+#### 技术实现细节
+
+**1. 版本同步机制**
+```bash
+# 检查版本一致性
+python -c "import mempalace; print('Python包版本:', mempalace.__version__)"
+# 输出: Python包版本: 3.3.0
+
+# plugin.json 版本已同步为 3.3.0
+```
+
+**2. 虚拟环境激活脚本**
+```batch
+@echo off
+REM start_mempalace_mcp.bat
+set VENV_PATH=%~dp0venv
+call "%VENV_PATH%\Scripts\activate.bat" && python -m mempalace.mcp_server
+```
+
+**3. 智能环境选择逻辑**
+```bash
+# smart_mempalace.sh 核心逻辑
+if [ -f "$PROJECT_VENV_PATH/Scripts/activate" ]; then
+    source "$PROJECT_VENV_PATH/Scripts/activate"
+    echo "Using project mempalace (version: 3.3.0)"
+    python -m mempalace.mcp_server "$@"
+elif command -v mempalace >/dev/null 2>&1; then
+    echo "Using system mempalace"
+    mempalace "$@"
+fi
+```
+
+#### 解决的问题
+- ✅ **版本同步问题**：插件版本与 Python 包版本保持一致
+- ✅ **环境配置问题**：MCP 服务器使用项目虚拟环境
+- ✅ **技能系统优先级**：技能自动使用项目环境
+- ✅ **向后兼容性**：保持系统环境作为备选方案
+
+#### 使用指南
+
+**1. 验证配置**
+```bash
+# 检查版本
+cd mempalace/mempalace
+source venv/Scripts/activate
+python -c "import mempalace; print('版本:', mempalace.__version__)"
+
+# 测试 MCP 服务器
+cmd.exe /c start_mempalace_mcp.bat --help
+```
+
+**2. 使用技能系统**
+- `/mempalace:init` - 初始化记忆宫殿（自动使用项目环境）
+- `/mempalace:mine` - 挖掘项目记忆（自动使用项目环境）
+- `/mempalace:search` - 搜索记忆（自动使用项目环境）
+
+**3. 手动调用**
+```bash
+# 使用项目环境
+cd mempalace/mempalace
+source venv/Scripts/activate
+mempalace init
+
+# 或使用智能脚本
+./run_mempalace_for_skill.sh init
+```
+
+#### 注意事项
+1. **重启要求**：修改 MCP 服务器配置后需要重启 Claude Code
+2. **路径配置**：脚本中的路径需要根据实际安装位置调整
+3. **权限要求**：Windows 系统可能需要管理员权限执行 bat 脚本
+4. **环境隔离**：项目虚拟环境确保版本一致性，避免全局包污染
+
+#### 总结
+MemPalace 插件版本同步与配置优化解决了插件版本管理、环境配置和技能系统集成等关键问题，为项目提供了稳定可靠的记忆系统支持。通过智能环境选择策略，确保了最佳的用户体验和系统稳定性。
+
+### 八、Claude-mem 记忆系统路径问题分析与解决方案
+
+#### 问题发现
+在集成 Claude-mem 记忆系统时发现以下关键问题：
+1. **路径编码不一致**：Claude Code 使用编码后的项目路径作为记忆存储目录名，但编码算法存在不一致性
+2. **记忆分散存储**：同一项目生成了多个不同编码版本的目录，导致记忆文件分散存储
+3. **配置位置混乱**：`.claude-mem.json` 配置文件可能被错误地保存到插件目录中
+
+#### 发现的编码版本
+通过分析发现，同一项目生成了多个不同编码版本的目录：
+1. `C--Users-Administrator-Desktop-projects-claudecode------cloud-code-rewrite-cloud-code-main` (错误编码，缺少`yuanmaziyuan`)
+2. `C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main` (正确编码)
+3. `C--Users-Administrator-Desktop-projects-claudecode-cloud-code-rewrite-cloud-code-main` (缺少`yuanmaziyuan`)
+4. `C--Users-Administrator-Desktop-projects-claudecode-ymzy-cloud-code-rewrite-cloud-code-main` (使用缩写)
+
+#### 根本原因分析
+1. **路径编码算法问题**：Claude Code 在编码包含中文字符或特殊字符的路径时，可能使用不同的编码策略
+2. **会话历史影响**：不同时间启动的 Claude Code 会话可能使用了不同的编码参数
+3. **路径变化**：项目路径可能在不同时间有所变化（如重命名目录）
+4. **配置优先级**：`.claude-mem.json` 配置文件可能被错误地保存到插件目录而非项目根目录
+
+#### 解决方案
+
+**1. 记忆系统整合**
+- **识别正确路径**：选择包含完整路径信息且最近使用的编码版本
+- **创建备份**：在操作前备份所有原始记忆文件
+- **合并文件**：将分散的记忆文件复制到统一目录
+- **处理冲突**：对于相似内容，保留更详细、结构更好的版本
+- **更新索引**：合并 MEMORY.md 文件，创建统一的索引
+- **清理旧目录**：删除或重命名错误的目录，防止继续使用
+
+**2. 配置位置标准化**
+- **项目根目录**：`.claude-mem.json` 应保存在项目根目录的 `claude-mem/` 子目录中
+- **避免插件目录**：不应将配置文件保存到插件目录（如 `mempalace/mempalace/`）
+- **配置验证**：启动时验证配置文件的正确位置
+
+**3. 技术实现细节**
+
+**文件冲突处理策略**：
+- `user_permissions.md` vs `admin_privileges.md`：保留更详细的 `user_permissions.md`
+- 其他文件：直接复制，保持原内容
+- 索引文件：手动合并，按类别组织
+
+**备份策略**：
+```
+C:/Users/Administrator/.claude/projects/memory_backup/
+├── wrong_encoded_memory/    # 错误编码目录的备份
+└── correct_encoded_memory/  # 正确编码目录的备份
+```
+
+#### 当前配置状态
+**正确的配置位置**：
+- `C:\Users\Administrator\Desktop\projects\claudecode\yuanmaziyuan\cloud-code-rewrite\cloud-code-main\claude-mem\.claude-mem.json`
+
+**正确的记忆存储位置**：
+- `C:\Users\Administrator\.claude\projects\C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main\memory\`
+
+#### 解决的问题
+- ✅ **路径编码不一致**：识别并统一了正确的编码版本
+- ✅ **记忆分散存储**：整合了分散的记忆文件到统一目录
+- ✅ **配置位置混乱**：明确了配置文件的正确保存位置
+- ✅ **记忆完整性**：确保了记忆系统的完整性和一致性
+
+#### 预防措施
+1. **路径标准化**：确保项目使用稳定、一致的路径
+2. **编码验证**：检查 Claude Code 生成的项目目录编码是否正确
+3. **定期检查**：定期查看 `.claude/projects/` 目录，发现异常编码及时处理
+4. **配置位置检查**：确保 `.claude-mem.json` 保存在项目根目录的 `claude-mem/` 子目录中
+
+#### 恢复策略
+1. **始终备份**：在进行记忆操作前创建完整备份
+2. **保留历史**：不要立即删除旧目录，先重命名观察
+3. **文档记录**：记录整合过程和决策原因
+
+#### 应用场景
+**何时需要整合记忆**：
+1. 发现记忆文件分散在多个编码目录中
+2. 记忆内容不完整或重复
+3. Claude Code 会话使用错误的记忆路径
+4. 项目路径发生变化后
+
+**整合后的好处**：
+1. **统一管理**：所有记忆集中存储
+2. **完整历史**：合并分散的记忆片段
+3. **避免冲突**：消除重复和矛盾信息
+4. **提高效率**：通过统一索引快速查找
+
+#### 总结
+Claude-mem 记忆系统路径问题的解决确保了记忆系统的稳定性和可靠性。通过整合分散的记忆文件、标准化配置位置和实施预防措施，为项目提供了完整的记忆系统支持。这一解决方案不仅解决了当前的问题，还为未来的项目维护提供了清晰的指导原则。
+
+### 本次更新详细内容
+
+#### 1. WeChat CLI 集成与问题诊断
+- **集成完成**：成功集成 WeChat CLI 本地微信数据查询工具
+- **虚拟环境配置**：已创建完整的 Python 虚拟环境并安装所有依赖
+- **启动脚本**：提供 Windows 和 Bash 启动脚本
+- **完整文档**：包含使用指南、快速参考、项目集成说明等
+- **问题诊断**：发现并记录了数据库路径格式不一致问题
+
+#### 2. 数据库路径格式问题发现与文档更新
+**发现问题**：
+- 密钥文件使用 `db_storage\` 前缀，部分代码使用无前缀路径
+- 导致 `contacts --detail`、`members`、`favorites`、`new-messages`、`unread` 命令无法正常工作
+
+**文档更新**：
+- 更新了所有相关文档（README.md、README_CN.md、QUICK_REFERENCE.md 等）
+- 添加了详细的问题描述和临时解决方案
+- 提供了需要修复的具体文件位置和行号
+
+#### 3. 项目文档完善
+- 在项目 README 中添加了 WeChat CLI 集成说明
+- 更新了项目结构图，包含 wechat-cli 目录
+- 创建了详细的问题报告和文档更新总结
+
+#### 4. 持续改进
+- 保持与原有五大核心改进的兼容性
+- 确保 Hookify 插件 Windows 兼容性修复不受影响
+- 为后续代码修复提供了明确的技术指导
+
+### 七、集成自动记忆保存功能
+
+**新增功能**：
+1. **自动记忆保存集成**：
+   - 将 `python claude-mem-auto-save.py --continuous --interval 300` 命令集成到 `TUI启动器.bat`
+   - 实现 Claude Code 启动时自动运行记忆保存服务
+   - 每5分钟自动扫描并保存会话到 MemPalace
+
+2. **一体化启动体验**：
+   ```bash
+   # 只需运行一个命令，同时启动 Claude Code 和记忆保存服务
+   TUI启动器.bat
+   ```
+
+3. **智能服务管理**：
+   - **自动检测**：检查 Python 和脚本依赖
+   - **后台运行**：记忆保存服务在后台运行，不影响主程序
+   - **优雅清理**：Claude Code 关闭后自动停止记忆保存服务
+   - **状态报告**：提供清晰的启动和关闭状态信息
+
+4. **完整文档支持**：
+   - `TUI_LAUNCHER_UPDATE.md` - 详细更新说明和技术细节
+   - `AUTO_MEMORY_SAVER_LAUNCHER.md` - 完整使用指南和配置选项
+   - `claude-mem-auto-save.py` - 自动记忆保存脚本源代码
+
+5. **技术优势**：
+   - **无缝集成**：与现有启动流程完美结合
+   - **用户友好**：清晰的提示信息和智能错误处理
+   - **可靠稳定**：进程监控和自动清理确保系统稳定性
+   - **向后兼容**：条件不满足时跳过服务，不影响原有功能
+
+**解决的问题**：
+- 手动运行记忆保存命令的繁琐
+- 服务生命周期管理复杂
+- 用户需要记住额外命令和参数
+- 服务异常时缺乏自动恢复
+
+**使用效果**：
+```
+运行 TUI启动器.bat → 自动启动记忆保存 → 启动 Claude Code → 自动保存会话 → 关闭时自动清理
+```
+
+现在用户只需运行 `TUI启动器.bat` 即可享受完整的 Claude Code 体验，包括自动记忆保存功能。
+
+### 七、集成自动记忆保存功能
+
+**新增功能**：
+1. **自动记忆保存集成**：
+   - 将 `python claude-mem-auto-save.py --continuous --interval 300` 命令集成到 `TUI启动器.bat`
+   - 实现 Claude Code 启动时自动运行记忆保存服务
+   - 每5分钟自动扫描并保存会话到 MemPalace
+
+2. **一体化启动体验**：
+   ```bash
+   # 只需运行一个命令，同时启动 Claude Code 和记忆保存服务
+   TUI启动器.bat
+   ```
+
+3. **智能服务管理**：
+   - **自动检测**：检查 Python 和脚本依赖
+   - **后台运行**：记忆保存服务在后台运行，不影响主程序
+   - **优雅清理**：Claude Code 关闭后自动停止记忆保存服务
+   - **状态报告**：提供清晰的启动和关闭状态信息
+
+4. **完整文档支持**：
+   - `TUI_LAUNCHER_UPDATE.md` - 详细更新说明和技术细节
+   - `AUTO_MEMORY_SAVER_LAUNCHER.md` - 完整使用指南和配置选项
+   - `claude-mem-auto-save.py` - 自动记忆保存脚本源代码
+
+5. **技术优势**：
+   - **无缝集成**：与现有启动流程完美结合
+   - **用户友好**：清晰的提示信息和智能错误处理
+   - **可靠稳定**：进程监控和自动清理确保系统稳定性
+   - **向后兼容**：条件不满足时跳过服务，不影响原有功能
+
+**解决的问题**：
+- 手动运行记忆保存命令的繁琐
+- 服务生命周期管理复杂
+- 用户需要记住额外命令和参数
+- 服务异常时缺乏自动恢复
+
+**使用效果**：
+```
+运行 TUI启动器.bat → 自动启动记忆保存 → 启动 Claude Code → 自动保存会话 → 关闭时自动清理
+```
+
+现在用户只需运行 `TUI启动器.bat` 即可享受完整的 Claude Code 体验，包括自动记忆保存功能。

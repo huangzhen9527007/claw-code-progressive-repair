@@ -128,3 +128,163 @@ bun run wechat   # 微信远程控制
 | Typing 状态（"正在输入"） | ✅ |
 | 24h token 过期重连 | ✅ |
 | 长消息自动分片 | ✅ |
+
+---
+
+## 五、MemPalace 插件版本同步与配置优化
+
+### 5.1 问题发现
+1. **版本号不同步**: `plugin.json` 版本为 3.0.14，而 `pyproject.toml` 版本为 3.3.0
+2. **环境配置问题**: MCP 服务器配置使用系统 Python 环境，而非项目虚拟环境
+3. **技能系统环境优先级**: 技能系统无法自动识别项目环境优先级
+
+### 5.2 解决方案
+
+#### 5.2.1 版本号同步
+- 更新 `plugin.json` 版本号: `3.0.14` → `3.3.0`
+- 确保插件版本与 Python 包版本保持一致
+
+#### 5.2.2 MCP 服务器配置优化
+```json
+// 修改前（使用系统环境）
+"mcpServers": {
+  "mempalace": {
+    "command": "python3",
+    "args": ["-m", "mempalace.mcp_server"]
+  }
+}
+
+// 修改后（使用项目虚拟环境）
+"mcpServers": {
+  "mempalace": {
+    "command": "cmd.exe",
+    "args": [
+      "/c",
+      "C:\\Users\\Administrator\\Desktop\\projects\\claudecode\\yuanmaziyuan\\cloud-code-rewrite\\cloud-code-main\\mempalace\\mempalace\\start_mempalace_mcp.bat"
+    ]
+  }
+}
+```
+
+#### 5.2.3 智能包装脚本
+1. **`start_mempalace_mcp.bat`** - Windows 启动脚本
+2. **`smart_mempalace.sh`** - 智能环境选择脚本
+3. **`run_mempalace_for_skill.sh`** - 技能系统专用脚本
+
+#### 5.2.4 环境优先级策略
+1. **项目虚拟环境**（首选）: 使用项目中的 mempalace 3.3.0
+2. **系统环境**（备选）: 使用系统安装的 mempalace
+3. **自动降级**: 如果项目环境不可用，自动回退到系统环境
+
+### 5.3 验证结果
+- ✅ 版本同步验证通过
+- ✅ MCP 服务器配置验证通过
+- ✅ 技能系统环境优先级验证通过
+- ✅ 跨平台兼容性验证通过
+
+### 5.4 经验总结
+1. **版本管理最佳实践**: 插件版本与 Python 包版本应保持一致
+2. **环境隔离策略**: 每个项目使用独立的虚拟环境，提供智能降级
+3. **技能系统集成模式**: 助手实现智能环境选择，确保最佳用户体验
+4. **跨平台兼容性**: 提供 Windows 和 Unix 双平台支持
+
+### 5.5 技术洞察
+```
+★ Insight ─────────────────────────────────────
+1. 插件架构设计: Claude Code 插件系统采用松耦合设计，插件版本和 Python 包版本可以独立更新
+2. 环境优先级模式: 智能环境选择策略是解决多环境冲突的有效模式
+3. 技能执行机制: 技能系统本质上是指导文档+助手执行的模式
+─────────────────────────────────────────────────
+```
+
+### 5.6 文件修改清单
+1. **版本同步修改**: `~/.claude/plugins/marketplaces/mempalace/.claude-plugin/plugin.json`
+2. **MCP 服务器配置**: 同上文件
+3. **新建脚本文件**: `start_mempalace_mcp.bat`, `smart_mempalace.sh`, `run_mempalace_for_skill.sh`
+4. **文档更新**: README.md, memory/mempalace_version_sync.md, MEMORY.md
+5. **配置文件**: `mempalace/mempalace/.claude-mem.json`
+
+### 5.7 更新记录
+- **2026-04-14**: 创建完整解决方案，解决版本同步、环境配置和技能系统优先级问题
+- **关键修改**: 版本号同步、MCP 服务器配置优化、智能包装脚本创建
+- **验证状态**: 所有功能验证通过，跨平台兼容性确认
+
+---
+
+## 五、MemPalace 插件版本同步与配置优化
+
+### 5.1 问题发现
+1. **版本号不同步**: `plugin.json` 版本为 3.0.14，而 `pyproject.toml` 版本为 3.3.0
+2. **环境配置问题**: MCP 服务器配置使用系统 Python 环境，而非项目虚拟环境
+3. **技能系统环境优先级**: 技能系统无法自动识别项目环境优先级
+
+### 5.2 解决方案
+
+#### 5.2.1 版本号同步
+- 更新 `plugin.json` 版本号: `3.0.14` → `3.3.0`
+- 确保插件版本与 Python 包版本保持一致
+
+#### 5.2.2 MCP 服务器配置优化
+```json
+// 修改前（使用系统环境）
+"mcpServers": {
+  "mempalace": {
+    "command": "python3",
+    "args": ["-m", "mempalace.mcp_server"]
+  }
+}
+
+// 修改后（使用项目虚拟环境）
+"mcpServers": {
+  "mempalace": {
+    "command": "cmd.exe",
+    "args": [
+      "/c",
+      "C:\\Users\\Administrator\\Desktop\\projects\\claudecode\\yuanmaziyuan\\cloud-code-rewrite\\cloud-code-main\\mempalace\\mempalace\\start_mempalace_mcp.bat"
+    ]
+  }
+}
+```
+
+#### 5.2.3 智能包装脚本
+1. **`start_mempalace_mcp.bat`** - Windows 启动脚本
+2. **`smart_mempalace.sh`** - 智能环境选择脚本
+3. **`run_mempalace_for_skill.sh`** - 技能系统专用脚本
+
+#### 5.2.4 环境优先级策略
+1. **项目虚拟环境**（首选）: 使用项目中的 mempalace 3.3.0
+2. **系统环境**（备选）: 使用系统安装的 mempalace
+3. **自动降级**: 如果项目环境不可用，自动回退到系统环境
+
+### 5.3 验证结果
+- ✅ 版本同步验证通过
+- ✅ MCP 服务器配置验证通过
+- ✅ 技能系统环境优先级验证通过
+- ✅ 跨平台兼容性验证通过
+
+### 5.4 经验总结
+1. **版本管理最佳实践**: 插件版本与 Python 包版本应保持一致
+2. **环境隔离策略**: 每个项目使用独立的虚拟环境，提供智能降级
+3. **技能系统集成模式**: 助手实现智能环境选择，确保最佳用户体验
+4. **跨平台兼容性**: 提供 Windows 和 Unix 双平台支持
+
+### 5.5 技术洞察
+```
+★ Insight ─────────────────────────────────────
+1. 插件架构设计: Claude Code 插件系统采用松耦合设计，插件版本和 Python 包版本可以独立更新
+2. 环境优先级模式: 智能环境选择策略是解决多环境冲突的有效模式
+3. 技能执行机制: 技能系统本质上是指导文档+助手执行的模式
+─────────────────────────────────────────────────
+```
+
+### 5.6 文件修改清单
+1. **版本同步修改**: `~/.claude/plugins/marketplaces/mempalace/.claude-plugin/plugin.json`
+2. **MCP 服务器配置**: 同上文件
+3. **新建脚本文件**: `start_mempalace_mcp.bat`, `smart_mempalace.sh`, `run_mempalace_for_skill.sh`
+4. **文档更新**: README.md, memory/mempalace_version_sync.md, MEMORY.md
+5. **配置文件**: `mempalace/mempalace/.claude-mem.json`
+
+### 5.7 更新记录
+- **2026-04-14**: 创建完整解决方案，解决版本同步、环境配置和技能系统优先级问题
+- **关键修改**: 版本号同步、MCP 服务器配置优化、智能包装脚本创建
+- **验证状态**: 所有功能验证通过，跨平台兼容性确认
