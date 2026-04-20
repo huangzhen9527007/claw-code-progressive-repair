@@ -1,0 +1,14 @@
+{
+  "name": "memory-tools",
+  "displayName": "Memory Tools",
+  "description": "记忆系统工具插件 - 提供记忆系统诊断和维护功能",
+  "version": "1.0.0",
+  "author": {
+    "name": "Claude Code Assistant",
+    "email": ""
+  },
+  "homepage": "",
+  "repository": "",
+  "keywords": ["memory", "diagnosis", "maintenance", "tools"],
+  "skills": "./skills/"
+}

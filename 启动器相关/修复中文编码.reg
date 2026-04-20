@@ -1,0 +1,47 @@
+Windows Registry Editor Version 5.00
+
+; ============================================
+; 修复Windows CMD中文编码问题
+; ============================================
+; 双击此文件导入注册表设置
+; ============================================
+
+[HKEY_CURRENT_USER\Console]
+; 设置代码页为UTF-8 (65001)
+"CodePage"=dword:0000fde9
+
+; 设置字体为支持UTF-8的字体
+"FaceName"="MS Gothic"
+"FontFamily"=dword:00000036
+"FontSize"=dword:00120000
+"FontWeight"=dword:00000190
+
+; 启用快速编辑模式
+"QuickEdit"=dword:00000001
+"InsertMode"=dword:00000001
+
+; 缓冲区大小
+"ScreenBufferSize"=dword:012c0050
+"WindowSize"=dword:00280050
+
+; 颜色设置
+"ScreenColors"=dword:00000007
+"PopupColors"=dword:000000f5
+
+; ============================================
+; 为特定程序设置（可选）
+; ============================================
+
+[HKEY_CURRENT_USER\Console\C:_Users_Administrator_Desktop_projects_claudecode_yuanmaziyuan_cloud-code-rewrite_cloud-code-main_TUI启动器_UTF8.bat]
+"CodePage"=dword:0000fde9
+"FaceName"="MS Gothic"
+"FontFamily"=dword:00000036
+
+[HKEY_CURRENT_USER\Console\C:_Users_Administrator_Desktop_projects_claudecode_yuanmaziyuan_cloud-code-rewrite_cloud-code-main_TUI启动器_终极版.bat]
+"CodePage"=dword:0000fde9
+"FaceName"="MS Gothic"
+"FontFamily"=dword:00000036
+
+; ============================================
+; 导入后需要重启CMD才能生效
+; ============================================

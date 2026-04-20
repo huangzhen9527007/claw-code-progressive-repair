@@ -1,0 +1,90 @@
+{
+  "project": "cloud-code-main",
+  "description": "Claude Code逆向还原项目的二次开发版本，带有OpenAI兼容API适配层和微信远程控制桥接",
+  "version": "1.0.4",
+  "configLocation": "项目根目录/claude-mem/.claude-mem.json",
+  "memoryLocation": "~/.claude/projects/C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main/memory/",
+  "grammars": {
+    "python": {
+      "package": "tree-sitter-python",
+      "extensions": [".py"]
+    },
+    "batch": {
+      "package": "tree-sitter-batch",
+      "extensions": [".bat", ".cmd"]
+    },
+    "bash": {
+      "package": "tree-sitter-bash",
+      "extensions": [".sh"]
+    },
+    "typescript": {
+      "package": "tree-sitter-typescript",
+      "extensions": [".ts", ".tsx"]
+    },
+    "javascript": {
+      "package": "tree-sitter-javascript",
+      "extensions": [".js", ".jsx"]
+    },
+    "json": {
+      "package": "tree-sitter-json",
+      "extensions": [".json"]
+    },
+    "markdown": {
+      "package": "tree-sitter-markdown",
+      "extensions": [".md"]
+    }
+  },
+  "observationDefaults": {
+    "types": ["decision", "feature", "discovery", "bugfix", "config", "integration", "compatibility"],
+    "concepts": [
+      "mempalace",
+      "claude-code",
+      "插件配置",
+      "版本管理",
+      "环境优先级",
+      "openai-compat",
+      "wechat-bridge",
+      "hookify",
+      "windows-compatibility",
+      "memory-system",
+      "path-encoding"
+    ]
+  },
+  "integrationNotes": {
+    "mempalace": {
+      "version": "3.3.0",
+      "configOptimized": true,
+      "environmentPriority": "project-venv > system",
+      "skillIntegration": "complete"
+    },
+    "hookify": {
+      "windowsCompatibility": "fixed",
+      "pythonCommand": "python (not python3)",
+      "dataFormat": "standardized",
+      "hookEvents": ["PreToolUse", "PostToolUse", "Stop", "UserPromptSubmit"]
+    },
+    "wechatCli": {
+      "integrated": true,
+      "venvReady": true,
+      "dbPathIssue": "documented",
+      "commands": ["sessions", "history", "search", "contacts", "members", "stats", "export", "favorites", "unread", "new-messages", "init"]
+    },
+    "claudeMem": {
+      "configLocation": "project-root/claude-mem/",
+      "memoryConsolidated": true,
+      "pathEncoding": "standardized",
+      "backupStrategy": "implemented"
+    }
+  },
+  "pathEncodingIssues": {
+    "discoveredEncodings": [
+      "C--Users-Administrator-Desktop-projects-claudecode------cloud-code-rewrite-cloud-code-main",
+      "C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main",
+      "C--Users-Administrator-Desktop-projects-claudecode-cloud-code-rewrite-cloud-code-main",
+      "C--Users-Administrator-Desktop-projects-claudecode-ymzy-cloud-code-rewrite-cloud-code-main"
+    ],
+    "correctEncoding": "C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main",
+    "consolidationCompleted": true,
+    "backupLocation": "~/.claude/projects/memory_backup/"
+  }
+}
