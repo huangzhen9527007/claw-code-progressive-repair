@@ -1739,22 +1739,22 @@ python memory_diagnosis_cli.py report
 python memory_diagnosis_cli.py fix
 ```
 
-### 作为Claude Code技能使用
+### 作为Claude Code技能使用（以下命令暂时不可使用，已更新为直接进入memory-tools中使用，这里仅保留作为一种思路）
 
-记忆系统诊断工具已安装为Claude Code技能，可以通过以下命令触发：
+记忆系统诊断工具已安装为Claude Code技能，可以通过以下命令触发（以下命令暂时不可使用，已更新为直接进入memory-tools中使用，这里仅保留作为一种思路）：
 
-#### 中文触发词
+#### 中文触发词（以下命令暂时不可使用，已更新为直接进入memory-tools中使用，这里仅保留作为一种思路）
 - `/检查记忆系统`
 - `/记忆系统诊断`
 - `/检查记忆完整性`
 - `/检查记忆索引`
 - `/记忆系统维护`
 
-#### 英文触发词
+#### 英文触发词（以下命令暂时不可使用，已更新为直接进入memory-tools中使用，这里仅保留作为一种思路）
 - `/memory system check`
 - `/memory diagnosis`
 
-#### 技能使用示例
+#### 技能使用示例（以下命令暂时不可使用，已更新为直接进入memory-tools中使用，这里仅保留作为一种思路）
 ```bash
 # 基本检查（默认）
 /检查记忆系统
@@ -1791,38 +1791,9 @@ python memory_diagnosis_cli.py fix
 - `memory-diagnosis-tool/README_MEMORY_DIAGNOSIS.md` - 详细使用指南
 - `memory-diagnosis-tool/CLAUDE_CODE_SKILL_USAGE.md` - Claude Code技能使用指南
 
-# 简单检查
-python memory_diagnosis.py
-
-# 完整诊断报告
-python memory_diagnosis.py report
-
-# 显示修复计划
-python memory_diagnosis.py fix
-```
-
-# 简单检查
-python memory_diagnosis_cli.py
-
-# 完整诊断报告
-python memory_diagnosis_cli.py report
-
-# 显示修复计划
-python memory_diagnosis_cli.py fix
-```
-
-# 基本检查（默认）
-/检查记忆系统
-
-# 生成详细报告
-/检查记忆系统 --action report
-
-# 显示修复计划
-/检查记忆系统 --action fix-plan
-
-# 指定记忆目录
-/检查记忆系统 --memory-dir "/path/to/your/memory"
-```
+# 简单检查\完整诊断报告\显示修复计划等功能整合，使用以下命令运行
+- cd memory-tools
+- python main.py
 
 ## 📋 更新日志
 
