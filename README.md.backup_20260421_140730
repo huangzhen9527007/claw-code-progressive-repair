@@ -1,0 +1,1869 @@
+# Cloud Code (OpenAI Compatible Fork) - 增强版
+
+ Claude Code CLI 逆向还原项目的二次开发版本adoresever/cloud-code：**新增 OpenAI 兼容 API 适配层** + **微信远程控制桥接**。本版本在adoresever/cloud-code项目基础上进行了全面优化和增强。
+
+> Maintained by **二次开发团队**
+>
+> 基于Claude Code CLI逆向还原项目的二次开发版本，新增OpenAI兼容API适配层和微信远程控制桥接。本版本在adoresever/cloud-code项目基础上进行了五大核心改进，并修复了Hookify插件的Windows兼容性问题。
+
+## 🚀 新旧项目对比：五大核心改进
+
+本项目主要基于衍生项目（adoresever/cloud-code）及其他相关衍生项目（T8版和土豆版）进行了全面优化，主要改进点如下：
+
+### 一、便捷配置.env双端启动和内置选项卡配置同时并存
+
+**原项目问题：**
+- 没有`.env`文件支持，只能通过环境变量或交互式界面配置
+- 缺少配置持久化和管理机制
+
+**本版本改进：**
+1. **新增`.env`文件系统**：
+   - `.env.example`：完整的配置模板（180+行详细配置）
+   - `.env`：用户配置文件
+   - `ENVIRONMENT_VARIABLES.md`：详细配置文档（58个配置项说明）
+
+2. **双端配置支持**：
+   - 环境变量配置（`.env`文件）
+   - 交互式配置界面（`OpenAICompatSetup.tsx`）
+   - 配置自动保存到`~/.claude.json`
+
+3. **预设提供商**：
+   ```typescript
+   const PROVIDER_PRESETS = [
+     { label: '优云智算', value: 'modelverse' },
+     { label: 'DeepSeek', value: 'deepseek' },
+     { label: 'Ollama (local)', value: 'ollama' },
+     { label: 'Custom URL', value: 'custom' },
+   ];
+   ```
+
+### 二、.env配置优化，覆盖更多配置，尽量完整
+
+**原项目问题：**
+- 只有基本的OpenAI兼容API配置
+- 缺少上下文窗口、输出限制等高级配置
+- 没有配置文档
+
+**本版本改进：**
+1. **完整的配置分类**：
+   - API提供商配置（OpenAI兼容、Anthropic、Bedrock、Vertex、Foundry）
+   - 上下文窗口配置（`CLAUDE_CODE_MAX_CONTEXT_TOKENS`）
+   - 输出token配置（`CLAUDE_CODE_MAX_OUTPUT_TOKENS`）
+   - 性能调优配置（`API_TIMEOUT_MS`）
+   - 功能标志配置（`CLAUDE_CODE_DISABLE_THINKING`等）
+
+2. **详细的文档说明**：
+   - `ENVIRONMENT_VARIABLES.md`：58个配置项的详细说明
+   - 配置优先级说明
+   - 常见问题解答
+
+3. **配置示例丰富**：
+   ```env
+   # 示例1：使用DeepSeek作为OpenAI兼容API
+   CLAUDE_CODE_USE_OPENAI_COMPAT=true
+   OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+   OPENAI_COMPAT_API_KEY=sk-xxx
+   OPENAI_COMPAT_MODEL=deepseek-chat
+   
+   # 示例2：使用本地Ollama
+   CLAUDE_CODE_USE_OPENAI_COMPAT=true
+   OPENAI_COMPAT_BASE_URL=http://localhost:11434
+   OPENAI_COMPAT_API_KEY=ollama
+   OPENAI_COMPAT_MODEL=llama3.2
+   ```
+
+### 三、解决国产模型适配和兼容性问题
+
+**原项目问题**：
+- 直接使用anthropicParams.max_tokens，没有环境变量覆盖
+- 国产模型可能因token限制返回API错误
+- 缺少消息序列处理优化
+
+**本版本改进**：
+```typescript
+// Determine max_tokens value for OpenAI-compatible APIs
+// Priority (from highest to lowest):
+// 1. CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI - OpenAI-specific override
+// 2. CLAUDE_CODE_MAX_OUTPUT_TOKENS - Global setting for all APIs
+// 3. anthropicParams.max_tokens - From original Anthropic request
+// 4. Default 8192 - Fallback value
+let maxTokens = 8192;
+
+// 1. Check for OpenAI-specific environment variable (highest priority)
+if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI) {
+  const openaiMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI, 10);
+  if (!isNaN(openaiMaxTokens) && openaiMaxTokens > 0) {
+    maxTokens = openaiMaxTokens;
+  }
+}
+// 2. Check for global environment variable
+else if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+  const envMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 10);
+  if (!isNaN(envMaxTokens) && envMaxTokens > 0) {
+    maxTokens = envMaxTokens;
+  }
+}
+// 3. Use anthropicParams.max_tokens if no environment variables set
+else if (anthropicParams.max_tokens !== undefined && anthropicParams.max_tokens > 0) {
+  maxTokens = anthropicParams.max_tokens;
+}
+// 4. Default to 8192 (already set)
+```
+
+**新增的消息序列处理**：
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  // 解决国产模型对连续相同角色消息的兼容性问题
+  // Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+  // 国产模型（MiniMax、GLM、Qwen等）对此处理不一致
+}
+```
+
+**解决的问题**：
+- **API error问题**：通过优先级处理max_tokens，避免国产模型token限制错误
+- **MAX_OUTPUT_TOKENS问题**：支持环境变量覆盖，适配不同模型的token限制
+- **MAXIMUM CONTEXT LENGTH问题**：通过`CLAUDE_CODE_MAX_CONTEXT_TOKENS`配置上下文窗口
+- **消息序列兼容性**：`postprocessMessages()`解决国产模型对消息格式的严格要求
+
+### 四、环境变量的优先级适配和模型配置优先级适配问题
+
+**原项目问题**：
+- 简单的环境变量检查，没有优先级系统
+- 缺少配置加载优先级定义
+- 模型选择逻辑简单
+
+**本版本改进**：
+
+1. **max_tokens优先级系统**（已在上文展示）
+2. **配置加载优先级**：
+   ```
+   1. 命令行参数
+   2. .env文件
+   3. 系统环境变量
+   4. 默认值
+   ```
+
+3. **API提供商优先级**：
+   ```
+   1. OpenAI兼容API（如果CLAUDE_CODE_USE_OPENAI_COMPAT=true）
+   2. Bedrock（如果CLAUDE_CODE_USE_BEDROCK=true）
+   3. Vertex AI（如果CLAUDE_CODE_USE_VERTEX=true）
+   4. Foundry（如果CLAUDE_CODE_USE_FOUNDRY=true）
+   5. Anthropic官方API（默认）
+   ```
+
+4. **上下文窗口优先级**：
+   ```
+   1. CLAUDE_CODE_MAX_CONTEXT_TOKENS环境变量
+   2. 模型能力检测
+   3. 102400 - 默认值
+   ```
+
+### 五、硬编码参数转为环境变量实现更灵活的配置
+
+**原项目问题**：
+- 许多参数硬编码在代码中
+- 无法根据用户需求调整
+- 缺少性能调优选项
+
+### 六、Hookify插件Windows兼容性修复
+
+**原项目问题**：
+- Hookify插件在Windows系统上无法正常工作
+- Python命令不兼容（`python3` vs `python`）
+- 输入数据格式与rule_engine期望的格式不匹配
+- 缺少`hook_event_name`字段导致事件类型识别失败
+
+**本版本改进**：
+1. **Python命令修复**：
+   - 所有`hooks.json`文件中的`python3`命令改为`python`
+   - 所有hook脚本的shebang从`#!/usr/bin/env python3`改为`#!/usr/bin/env python`
+
+2. **输入数据格式标准化**：
+   - `pretooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PreToolUse'`
+   - `posttooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PostToolUse'`
+   - `stop.py`：设置`hook_event_name: 'Stop'`，使用`conditions`格式规则
+   - `userpromptsubmit.py`：设置`hook_event_name: 'UserPromptSubmit'`
+
+3. **缓存同步**：
+   - 更新所有缓存目录中的相关文件（总计24个文件）
+   - 确保修改在所有缓存版本中生效
+
+4. **验证结果**：
+   - ✅ 所有hook事件类型都能正常工作
+   - ✅ 规则加载和匹配功能正常
+   - ✅ 完善的错误处理确保不会影响主程序
+
+**解决的问题**：
+- **平台兼容性问题**：解决Windows与Unix环境在Python命令名称上的差异
+- **数据格式不匹配**：标准化输入数据格式，确保与rule_engine期望的格式一致
+- **事件类型识别**：添加`hook_event_name`字段，确保不同事件类型能被正确识别和处理
+- **错误恢复能力**：完善的错误处理确保hook错误不会影响Claude Code的正常操作
+
+**本版本改进**：
+1. **Python命令修复**：
+   - 所有`hooks.json`文件中的`python3`命令改为`python`
+   - 所有hook脚本的shebang从`#!/usr/bin/env python3`改为`#!/usr/bin/env python`
+
+2. **输入数据格式标准化**：
+   - `pretooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PreToolUse'`
+   - `posttooluse.py`：将顶层`command`移动到`tool_input.command`，设置`hook_event_name: 'PostToolUse'`
+   - `stop.py`：设置`hook_event_name: 'Stop'`，使用`conditions`格式规则
+   - `userpromptsubmit.py`：设置`hook_event_name: 'UserPromptSubmit'`
+
+3. **缓存同步**：
+   - 更新所有缓存目录中的相关文件（总计24个文件）
+   - 确保修改在所有缓存版本中生效
+
+4. **验证结果**：
+   - ✅ 所有hook事件类型都能正常工作
+   - ✅ 规则加载和匹配功能正常
+   - ✅ 完善的错误处理确保不会影响主程序
+
+**解决的问题**：
+- **平台兼容性问题**：解决Windows与Unix环境在Python命令名称上的差异
+- **数据格式不匹配**：标准化输入数据格式，确保与rule_engine期望的格式一致
+- **事件类型识别**：添加`hook_event_name`字段，确保不同事件类型能被正确识别和处理
+- **错误恢复能力**：完善的错误处理确保hook错误不会影响Claude Code的正常操作
+
+**本版本改进**：
+
+1. **上下文窗口配置**：
+   ```env
+   # 最大上下文token数（默认：102400）
+   CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+   
+   # 自动压缩阈值（默认：102400）
+   CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
+   
+   # 禁用1M上下文（HIPAA合规性）
+   CLAUDE_CODE_DISABLE_1M_CONTEXT=false
+   ```
+
+2. **输出限制配置**：
+   ```env
+   # 全局最大输出token数（影响所有API提供商）
+   CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+   
+   # OpenAI兼容API特定的max_tokens（优先级最高）
+   CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+   ```
+
+3. **性能配置**：
+   ```env
+   # API请求超时时间（毫秒）（默认：600000，10分钟）
+   API_TIMEOUT_MS=600000
+   
+   # 禁用非必要流量（隐私模式）
+   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=false
+   ```
+
+4. **功能标志**：
+   ```env
+   # 禁用思考功能
+   CLAUDE_CODE_DISABLE_THINKING=false
+   
+   # 简化输出模式
+   CLAUDE_CODE_STREAMLINED_OUTPUT=false
+   
+   # 裸模式（跳过hooks、LSP、插件同步等）
+   CLAUDE_CODE_SIMPLE=false
+   ```
+
+### 六、其他重要改进
+
+1. **项目文档完善**：
+   - 新增`BAT_STARTUP_GUIDE.md`：Windows启动指南
+   - 新增`启动说明.txt`：中文使用说明
+   - 更新`RECORD.md`：详细开发记录
+   - 更新`TODO.md`：清晰的待办事项
+
+2. **Windows支持优化**：
+   - 新增`TUI启动器.bat`、`run.bat`、`start.bat`、`桌面版启动器.bat`
+   - 新增`test_path.bat`：路径测试脚本
+   - 新增`setup-env.sh`：环境设置脚本
+
+3. **Electron桌面版支持**：
+   ```json
+   "scripts": {
+     "desktop": "cd desktop && electron .",
+     "desktop:dev": "concurrently \"cd desktop && electron .\" \"cd desktop && bun run dev\""
+   }
+   ```
+
+### 总结对比表
+
+| 功能 | 原项目 | 本版本 | 改进点 |
+|------|--------|--------|--------|
+| 配置方式 | 环境变量/交互界面 | .env文件+交互界面+配置文件 | 三端配置并存 |
+| 配置文档 | 无 | ENVIRONMENT_VARIABLES.md（详细） | 完整配置指南 |
+| 国产模型适配 | 基础适配 | 深度优化（消息序列、token优先级） | 解决API错误 |
+| 环境变量优先级 | 无明确规则 | 四级优先级系统 | 避免配置冲突 |
+| 硬编码参数 | 较多 | 大部分转为环境变量 | 高度可配置 |
+| Windows支持 | 基础 | 完整（bat脚本、桌面版） | 更好的Windows体验 |
+| Hookify插件兼容性 | Windows不兼容 | 完整Windows兼容性修复 | Python命令、数据格式、事件类型全面修复 |
+| MemPalace插件集成 | 版本不同步 | 完整版本同步与配置优化 | 智能环境选择、技能系统集成 |
+| Claude-mem记忆系统 | 路径编码混乱 | 完整路径问题解决方案 | 记忆整合、配置标准化、预防措施 |
+| 项目文档 | 基础README | 多文档系统 | 更易上手 |
+| 性能调优 | 有限 | 全面的性能配置 | 更好的性能控制 |
+
+**核心改进总结**：
+1. **配置系统全面升级**：从单一配置到多端配置，支持环境变量优先级
+2. **国产模型深度优化**：专门解决DeepSeek、MiniMax、Qwen等国产模型的兼容性问题
+3. **用户体验大幅提升**：交互式配置、配置持久化、详细文档
+4. **灵活性极大增强**：硬编码参数转为环境变量，支持高度定制
+5. **平台支持更完善**：特别是Windows平台的优化支持
+6. **插件兼容性修复**：Hookify插件Windows兼容性完整修复，确保所有hook功能正常工作
+7. **记忆系统优化**：MemPalace插件版本同步与配置优化 + Claude-mem记忆系统路径问题解决方案
+8. **微信数据集成**：WeChat CLI本地微信数据查询工具完整集成与问题诊断
+
+---
+
+## 功能特性
+
+- **OpenAI 兼容 API 适配层** — 接入 DeepSeek、MiniMax、Ollama、优云智算等任意 OpenAI 兼容 API
+- **微信远程控制** — 通过腾讯官方 iLink Bot API（ClawBot 插件），在手机微信中远程操控 cloud-code
+- **🐾 /buddy 宠物系统** — 已解锁 Claude Code 隐藏的 Tamagotchi 终端宠物，18 物种 × 5 稀有度 × Shiny，支持暴力搜索最稀有组合
+- 支持文字、图片、文件、语音、视频的收发
+- 零外部依赖（微信桥接），纯 Bun 原生 API
+
+## 集成组件
+
+### WeChat CLI - 本地微信数据查询工具
+
+本项目集成了 **WeChat CLI**，这是一个命令行工具，用于查询本地微信数据，专为 AI 集成设计。
+
+#### 功能特点
+- **零配置安装**：已创建虚拟环境并安装所有依赖
+- **11个命令**：sessions、history、search、contacts、members、stats、export、favorites、unread、new-messages、init
+- **AI优先设计**：默认JSON输出，专为LLM Agent工具调用设计
+- **全程本地**：SQLCipher即时解密，数据不出本机
+- **丰富统计**：发言排行、消息类型分布、24小时活跃图
+
+#### 快速使用
+```bash
+# 激活虚拟环境
+cd wechat-cli
+source venv/Scripts/activate  # Bash (Git Bash/WSL)
+# 或
+venv\Scripts\activate.bat     # Windows CMD
+
+# 初始化（首次使用）
+wechat-cli init
+
+# 常用命令
+wechat-cli sessions --limit 10        # 查看最近会话
+wechat-cli history "联系人" --limit 20  # 查看聊天记录
+wechat-cli search "关键词" --chat "群聊" # 搜索消息
+```
+
+#### 已知问题：数据库路径格式不一致
+
+**问题描述**：
+- 密钥文件(`all_keys.json`)中的键名使用 `db_storage\` 前缀（如 `"db_storage\\session\\session.db"`）
+- 部分命令代码使用了不带前缀的路径（如 `"session\\session.db"`）
+- 这导致 `cache.get()` 返回 `None`，无法解密数据库
+
+**受影响的命令**：
+- `contacts --detail`（查看联系人详情）
+- `members`（查看群成员列表）
+- `favorites`（查看微信收藏）
+- `new-messages`（检查增量新消息）
+- `unread`（查看未读会话）
+
+**临时解决方案**：
+修改源代码中的路径，添加 `db_storage\` 前缀：
+```python
+# 错误格式（需要修复）：
+"session\\session.db"
+"contact\\contact.db"
+"favorite\\favorite.db"
+
+# 正确格式：
+"db_storage\\session\\session.db"
+"db_storage\\contact\\contact.db"
+"db_storage\\favorite\\favorite.db"
+```
+
+**需要修复的文件**：
+- `wechat_cli/core/contacts.py`（第105行、第165行）
+- `wechat_cli/commands/favorites.py`（第80行）
+- `wechat_cli/commands/new_messages.py`（第51行）
+- `wechat_cli/commands/unread.py`（第30行）
+
+**注意**：`sessions` 命令已使用正确格式（`"db_storage\\session\\session.db"`），可以正常工作。
+
+详细文档请参考 `wechat-cli/` 目录中的相关文档。
+
+# 激活虚拟环境
+cd wechat-cli
+source venv/Scripts/activate  # Bash (Git Bash/WSL)
+# 或
+venv\Scripts\activate.bat     # Windows CMD
+
+# 初始化（首次使用）
+wechat-cli init
+
+# 常用命令
+wechat-cli sessions --limit 10        # 查看最近会话
+wechat-cli history "联系人" --limit 20  # 查看聊天记录
+wechat-cli search "关键词" --chat "群聊" # 搜索消息
+```
+
+# 错误格式（需要修复）：
+"session\\session.db"
+"contact\\contact.db"
+"favorite\\favorite.db"
+
+# 正确格式：
+"db_storage\\session\\session.db"
+"db_storage\\contact\\contact.db"
+"db_storage\\favorite\\favorite.db"
+```
+
+**需要修复的文件**：
+- `wechat_cli/core/contacts.py`（第105行、第165行）
+- `wechat_cli/commands/favorites.py`（第80行）
+- `wechat_cli/commands/new_messages.py`（第51行）
+- `wechat_cli/commands/unread.py`（第30行）
+
+**注意**：`sessions` 命令已使用正确格式（`"db_storage\\session\\session.db"`），可以正常工作。
+
+详细文档请参考 `wechat-cli/` 目录中的相关文档。
+
+## 快速开始
+
+### 环境要求
+
+- [Bun](https://bun.sh/) >= 1.3.11（必须最新版，`bun upgrade`）
+- Node.js >= 18
+- 微信 iOS 最新版 + ClawBot 插件（我 → 设置 → 插件 → ClawBot）
+
+### 安装 & 运行
+
+```bash
+bun install
+bun run dev
+```
+
+启动后选择第四个选项 `OpenAI-compatible API`，按引导输入 API 地址、Key、模型名即可：
+
+```
+Select login method:
+  1. Claude account with subscription · Pro, Max, Team, or Enterprise
+  2. Anthropic Console account · API usage billing
+  3. 3rd-party platform · Amazon Bedrock, Microsoft Foundry, or Vertex AI
+❯ 4. OpenAI-compatible API · DeepSeek, Ollama, QwQ, etc.
+```
+
+配置自动保存到 `~/.claude.json`，下次启动无需重复输入。
+
+### 环境变量方式（可选）
+
+```bash
+export CLAUDE_CODE_USE_OPENAI_COMPAT=1
+export OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+export OPENAI_COMPAT_API_KEY=sk-xxx
+export OPENAI_COMPAT_MODEL=deepseek-chat
+bun run dev
+```
+
+## 高级配置
+
+### 环境变量配置系统
+
+本版本提供了完整的环境变量配置系统，支持180+个配置项。以下是核心配置分类：
+
+#### 1. API提供商配置
+```env
+# OpenAI兼容API（推荐使用）
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+OPENAI_COMPAT_API_KEY=sk-xxx
+OPENAI_COMPAT_MODEL=deepseek-chat
+
+# Anthropic官方API（备用）
+ANTHROPIC_API_KEY=sk-ant-api03-xxx
+ANTHROPIC_BASE_URL=https://api.anthropic.com
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+
+# AWS Bedrock
+CLAUDE_CODE_USE_BEDROCK=false
+
+# Google Vertex AI
+CLAUDE_CODE_USE_VERTEX=false
+
+# Microsoft Foundry
+CLAUDE_CODE_USE_FOUNDRY=false
+```
+
+#### 2. 上下文窗口配置
+```env
+# 最大上下文token数（默认：102400）
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+
+# 自动压缩阈值（当上下文使用超过此值时触发自动压缩）
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
+
+# 禁用1M上下文（HIPAA合规性）
+CLAUDE_CODE_DISABLE_1M_CONTEXT=false
+```
+
+#### 3. 输出token配置（优先级系统）
+```env
+# 全局最大输出token数（影响所有API提供商）
+CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+
+# OpenAI兼容API特定的max_tokens（优先级最高）
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+```
+
+**优先级顺序**：
+1. `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI` - OpenAI特定设置
+2. `CLAUDE_CODE_MAX_OUTPUT_TOKENS` - 全局设置
+3. `anthropicParams.max_tokens` - 原始请求值
+4. `8192` - 默认值
+
+#### 4. 性能调优配置
+```env
+# API请求超时时间（毫秒）（默认：600000，10分钟）
+API_TIMEOUT_MS=600000
+
+# 禁用非必要流量（隐私模式）
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=false
+
+# 维护项目工作目录
+CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=false
+```
+
+#### 5. 功能标志配置
+```env
+# 禁用思考功能
+CLAUDE_CODE_DISABLE_THINKING=false
+
+# 简化输出模式
+CLAUDE_CODE_STREAMLINED_OUTPUT=false
+
+# 裸模式（跳过hooks、LSP、插件同步等）
+CLAUDE_CODE_SIMPLE=false
+```
+
+#### 6. 调试和日志配置
+```env
+# 调试日志级别
+DEBUG=*
+
+# 授权标志（用于启动和发布控制）
+AUTHORIZED=true
+```
+
+### 配置优先级系统
+
+#### 配置加载优先级
+1. 命令行参数
+2. `.env`文件
+3. 系统环境变量
+4. 默认值
+
+#### API提供商优先级
+1. OpenAI兼容API（如果`CLAUDE_CODE_USE_OPENAI_COMPAT=true`）
+2. Bedrock（如果`CLAUDE_CODE_USE_BEDROCK=true`）
+3. Vertex AI（如果`CLAUDE_CODE_USE_VERTEX=true`）
+4. Foundry（如果`CLAUDE_CODE_USE_FOUNDRY=true`）
+5. Anthropic官方API（默认）
+
+#### 上下文窗口优先级
+1. `CLAUDE_CODE_MAX_CONTEXT_TOKENS`环境变量
+2. 模型能力检测
+3. `102400` - 默认值
+
+### 使用.env文件配置（推荐）
+
+创建 `.env` 文件在项目根目录，内容示例：
+
+```env
+# ============================================
+# OpenAI兼容API配置（取消注释以启用）
+# ============================================
+
+# 启用OpenAI兼容API
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+
+# OpenAI兼容API基础URL
+OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+
+# OpenAI兼容API密钥
+OPENAI_COMPAT_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# OpenAI兼容API模型名称
+OPENAI_COMPAT_MODEL=deepseek-chat
+
+# ============================================
+# 上下文窗口配置
+# ============================================
+
+# 最大上下文token数
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+
+# 自动压缩窗口阈值
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=102400
+
+# ============================================
+# 输出token配置
+# ============================================
+
+# 全局最大输出token数
+CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+
+# OpenAI兼容API特定的max_tokens设置（优先级最高）
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+
+# ============================================
+# 性能配置
+# ============================================
+
+# API超时时间（毫秒）
+API_TIMEOUT_MS=600000
+
+# 禁用非必要流量
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=false
+```
+
+### 常见配置示例
+
+#### 示例1：使用DeepSeek作为OpenAI兼容API
+```env
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+OPENAI_COMPAT_BASE_URL=https://api.deepseek.com
+OPENAI_COMPAT_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_COMPAT_MODEL=deepseek-chat
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=8192
+```
+
+#### 示例2：使用本地Ollama
+```env
+CLAUDE_CODE_USE_OPENAI_COMPAT=true
+OPENAI_COMPAT_BASE_URL=http://localhost:11434
+OPENAI_COMPAT_API_KEY=ollama
+OPENAI_COMPAT_MODEL=llama3.2
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI=4096
+```
+
+#### 示例3：使用Anthropic官方API
+```env
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=102400
+CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+```
+
+详细的环境变量说明请参考：
+- [`.env.example`](.env.example) - 完整的环境变量示例（180+行）
+- [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) - 详细的环境变量配置指南（58个配置项说明）
+
+## 微信远程控制
+
+在手机微信中远程控制电脑上的 cloud-code，基于腾讯官方 iLink Bot API，**不会封号**。
+
+### 使用方法
+
+```bash
+# 启动微信桥接（首次会显示二维码，微信扫码）
+bun run wechat
+
+# 强制重新扫码
+bun run wechat:login
+```
+
+扫码成功后，在微信中给 ClawBot 发消息即可远程使用 cloud-code。
+
+### 支持的消息类型
+
+| 类型 | 入站（微信→Bot） | 出站（Bot→微信） |
+|:----:|:---:|:---:|
+| 文字 | ✅ 自动分片 | ✅ 自动分片 |
+| 图片 | ✅ CDN 下载解密 | ✅ CDN 加密上传 |
+| 文件 | ✅ 任意文件类型 | ✅ 任意文件类型 |
+| 语音 | ✅ 自动转文字 | — |
+| 视频 | ✅ CDN 下载解密 | ✅ CDN 加密上传 |
+
+### 架构
+
+```
+手机微信 ──发消息──→ iLink API (ilinkai.weixin.qq.com)
+                         ↑ HTTP 长轮询
+                     wechat-bridge.ts
+                         ↓ spawn bun -p
+                     cloud-code CLI
+                         ↓
+                     OpenAI 兼容适配层 → LLM API
+                         ↓
+                     stdout → sendmessage → 微信
+```
+
+### 技术细节
+
+- 协议: 腾讯官方 iLink Bot API（HTTP/JSON，非逆向）
+- 媒体加密: AES-128-ECB + PKCS7 padding
+- CDN: `novac2c.cdn.weixin.qq.com/c2c`
+- Token 有效期: 24 小时，过期自动提示重新扫码
+- 凭证存储: `~/.wechat-bridge/`（不在项目目录内）
+
+## OpenAI 兼容 API 适配层
+
+### 支持的 API 提供商
+
+| 提供商 | Base URL | 示例模型 | 特点 |
+|--------|----------|----------|------|
+| 优云智算 | `https://api.modelverse.cn/v1` | MiniMax-M2.5, gpt-5.4 | 国产优质模型，支持长上下文 |
+| DeepSeek | `https://api.deepseek.com` | deepseek-chat, deepseek-reasoner | 性价比高，支持思考模型 |
+| Ollama | `http://localhost:11434` | qwen2.5:7b, llama3 | 本地部署，隐私安全 |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | qwen-plus, qwen-max | 阿里通义千问 |
+| 任意 OpenAI 兼容 API | 自定义 URL | 自定义模型名 | 支持任何兼容OpenAI格式的API |
+
+### 适配层架构
+
+适配层位于 `src/services/api/openai-compat/`，通过 duck-typing 伪装 Anthropic SDK 客户端，上游代码零改动：
+
+```
+claude.ts → getAnthropicClient() → createOpenAICompatClient()
+  ├─ request-adapter.ts: Anthropic params → OpenAI params
+  ├─ fetch() → 第三方 API
+  └─ stream-adapter.ts: OpenAI SSE → Anthropic 事件流
+```
+
+### 核心适配组件
+
+#### 1. 请求适配器 (`request-adapter.ts`)
+- **格式转换**：Anthropic消息格式 → OpenAI聊天完成格式
+- **系统提示处理**：Anthropic的top-level `system`字段 → OpenAI的`role=system`消息
+- **多模态支持**：图像base64编码 → data URI格式
+- **工具调用适配**：`input_schema` → `function.parameters`，`tool_result` → `role=tool`
+- **消息序列优化**：`postprocessMessages()`解决国产模型对连续相同角色消息的兼容性问题
+
+#### 2. 流式适配器 (`stream-adapter.ts`)
+- **流式转换**：OpenAI SSE流 → Anthropic事件流
+- **状态管理**：维护转换状态，处理复杂的块生命周期
+- **工具调用跟踪**：处理OpenAI流式工具调用
+- **思考标签解析**：支持QwQ-style模型的`<think>`标签
+
+#### 3. 思考适配器 (`thinking-adapter.ts`)
+- **思考模型支持**：DeepSeek R1的`reasoning_content`处理
+- **标签解析**：QwQ模型的`<think>`标签解析
+- **思考内容提取**：从响应中提取思考内容
+
+### 国产模型兼容性优化
+
+#### 解决的主要问题：
+1. **API error问题**：通过优先级处理max_tokens，避免国产模型token限制错误
+2. **MAX_OUTPUT_TOKENS问题**：支持环境变量覆盖，适配不同模型的token限制
+3. **MAXIMUM CONTEXT LENGTH问题**：通过`CLAUDE_CODE_MAX_CONTEXT_TOKENS`配置上下文窗口
+4. **消息序列兼容性**：`postprocessMessages()`解决国产模型对消息格式的严格要求
+
+#### 消息序列处理优化：
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  // Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+  // 国产模型（MiniMax、GLM、Qwen等）对此处理不一致
+  // 此函数合并连续相同角色的消息，确保兼容性
+}
+```
+
+### 配置自动加载
+
+启动时自动从以下位置加载配置：
+1. `~/.claude.json` - 用户配置文件（交互式配置保存位置）
+2. `.env`文件 - 项目环境变量
+3. 系统环境变量
+
+配置优先级确保用户配置不会被意外覆盖。
+
+## 项目结构
+
+```
+cloud-code/
+├── src/
+│   ├── entrypoints/cli.tsx                # 入口（含 OpenAI 配置自动加载）
+│   ├── buddy/                             # 🐾 Tamagotchi 宠物系统（已解锁）
+│   │   ├── companion.ts                   # 确定性抽卡逻辑（Mulberry32 PRNG）
+│   │   ├── CompanionSprite.tsx            # 终端精灵渲染（React + Ink）
+│   │   ├── sprites.ts                     # 18 物种 × 3 帧 ASCII art
+│   │   ├── types.ts                       # 物种/稀有度/属性类型定义
+│   │   ├── prompt.ts                      # Companion 提示词注入
+│   │   └── useBuddyNotification.tsx       # 彩虹通知 hook
+│   ├── commands/
+│   │   └── buddy/index.ts                 # /buddy 命令实现（已补全）
+│   ├── services/api/
+│   │   ├── client.ts                      # Provider 选择（含 openai_compat 分支）
+│   │   └── openai-compat/                 # OpenAI 兼容适配层
+│   │       ├── index.ts                   # 伪 Anthropic 客户端
+│   │       ├── request-adapter.ts         # 请求格式转换
+│   │       ├── stream-adapter.ts          # 流式响应转换
+│   │       └── thinking-adapter.ts        # 思考模型适配
+│   └── components/
+│       └── OpenAICompatSetup.tsx          # 交互式配置界面
+├── scripts/
+│   ├── wechat-bridge.ts                   # 微信桥接主脚本
+│   └── ilink.ts                           # iLink 协议封装
+├── wechat-cli/                            # 集成组件：本地微信数据查询工具
+│   ├── venv/                              # Python虚拟环境
+│   ├── wechat_cli/                        # 主程序包
+│   ├── entry.py                           # 入口点
+│   ├── pyproject.toml                     # 项目配置
+│   ├── start_wechat_cli.bat               # Windows启动脚本
+│   ├── start_wechat_cli.sh                # Bash启动脚本
+│   ├── VENV_USAGE.md                      # 虚拟环境使用指南
+│   ├── README_PROJECT.md                  # 项目集成说明
+│   ├── WECHAT_CLI_COMPLETE_GUIDE.md       # 完整使用指南
+│   ├── QUICK_REFERENCE.md                 # 快速参考卡片
+│   ├── db_storage_path_issue_report.md    # 数据库路径问题报告
+│   └── db_storage_path_documentation_update_summary.md # 文档更新总结
+├── claude-mem/                            # Claude-mem记忆系统配置
+│   ├── .claude-mem.json                   # 记忆系统配置文件
+│   └── MEMPALACE_VERSION_SYNC_SUMMARY.md  # MemPalace版本同步总结
+├── CLAUDE.md
+├── README.md
+├── RECORD.md
+└── TODO.md
+```
+
+## 其他命令
+
+```bash
+# 管道模式
+echo "say hello" | bun run src/entrypoints/cli.tsx -p
+
+# 构建
+bun run build
+```
+
+## 🐾 /buddy 宠物系统（已解锁）
+
+2026年3月31日 Claude Code v2.1.88 源码泄露事件中，社区在 `src/buddy/` 目录发现了一个完整但被编译时 flag 隐藏的 **Tamagotchi 风格终端宠物系统**。本项目已将其完整解锁——你的 AI 编程助手现在有了一只会卖萌的伙伴。
+
+### 它长什么样？
+
+```
+                                                                              -+-
+❯ 帮我重构这个函数                                                           /^\  /^\
+  ⎿  好的，让我看看这个函数的结构…                                          <  @  @  >
+                                                                            (   ~~   )
+                                                                             `-vvvv-´
+                                                                              Ember
+```
+
+宠物常驻在终端右侧，有 3 帧待机动画（500ms/帧）。宽终端（≥100列）显示完整 ASCII 精灵 + 语音气泡；窄终端压缩为一行脸部表情。用 `/buddy pet` 撸它时会飘出爱心动画。
+
+### 物种图鉴
+
+共 **18 个物种**，每个都有独立的 5 行×12 字符 ASCII art 和 3 帧动画：
+
+| 物种 | 脸 | 特点 |
+|------|:---:|------|
+| 🦆 duck | `(·>` | 经典小黄鸭，尾巴会摇 |
+| 🪿 goose | `(·>` | 脖子会伸缩，有攻击性 |
+| 🫧 blob | `(··)` | 会膨胀收缩的果冻 |
+| 🐱 cat | `=·ω·=` | ω 嘴，尾巴会晃 |
+| 🐉 dragon | `<·~·>` | 头顶冒烟，有翅膀 |
+| 🐙 octopus | `~(··)~` | 触手会交替摆动 |
+| 🦉 owl | `(·)(·)` | 大眼睛，会眨眼 |
+| 🐧 penguin | `(·>)` | 翅膀会拍 |
+| 🐢 turtle | `[·_·]` | 壳上花纹会变 |
+| 🐌 snail | `·(@)` | 壳上有螺旋纹 |
+| 👻 ghost | `/··\` | 底部波浪飘动 |
+| 🦎 axolotl | `}·.·{` | 腮会左右摆动 |
+| 🫏 capybara | `(·oo·)` | 最大号的脸 |
+| 🌵 cactus | `\|·  ·\|` | 手臂会上下 |
+| 🤖 robot | `[··]` | 天线会闪 |
+| 🐇 rabbit | `(··..)` | 耳朵会歪 |
+| 🍄 mushroom | `\|·  ·\|` | 帽子斑点会变 |
+| 🐈‍⬛ chonk | `(·.·)` | 大胖猫，尾巴摇 |
+
+### 稀有度体系
+
+| 稀有度 | 概率 | 颜色 | 星级 | 帽子 | 属性下限 |
+|--------|:----:|:----:|:----:|:----:|:--------:|
+| Common | 60% | 灰色 | ★ | 无 | 5 |
+| Uncommon | 25% | 绿色 | ★★ | 随机 | 15 |
+| Rare | 10% | 蓝色 | ★★★ | 随机 | 25 |
+| Epic | 4% | 金色 | ★★★★ | 随机 | 35 |
+| **Legendary** | **1%** | **红色** | **★★★★★** | **随机** | **50** |
+
+在此基础上，每只 buddy 还有独立的 **1% Shiny 概率**（发光特效）。
+
+**最稀有的组合是 ✦ SHINY LEGENDARY — 总概率 0.01%（万分之一）。**
+
+每只 buddy 还有 5 个属性：DEBUGGING、PATIENCE、CHAOS、WISDOM、SNARK。一个高峰属性（可达 100）、一个低谷属性（可低至 1）、其余随机分布。Legendary 的属性下限为 50，远高于 Common 的 5。
+
+装饰系统包含 6 种眼型（`·` `✦` `×` `◉` `@` `°`）和 7 种帽子（crown 👑、tophat 🎩、propeller、halo、wizard 🧙、beanie、tinyduck 🦆）。
+
+### 快速上手
+
+```bash
+# 启动（已默认配置 --feature=BUDDY）
+bun run dev
+
+# 孵化宠物（首次）或查看卡片
+/buddy
+
+# 撸宠物（飘爱心）
+/buddy pet
+
+# 隐藏 / 恢复
+/buddy mute
+/buddy unmute
+```
+
+### 解锁原理
+
+仅需 **3 处改动**，不触碰任何核心功能代码：
+
+| # | 文件 | 改动 | 说明 |
+|:-:|------|------|------|
+| ① | `package.json` | dev 命令加 `--feature=BUDDY` | Bun 原生运行时 flag，让 `feature('BUDDY')` 返回 true |
+| ② | `src/commands/buddy/index.ts` | 从空 stub 补全为完整命令 | 泄露源码中此文件为自动生成的空壳 |
+| ③ | `src/buddy/companion.ts` | 修改 SALT 值（可选） | 选择想要的 buddy 物种和稀有度 |
+
+**对主体功能的影响：零。** `--feature=BUDDY` 仅解锁 buddy 子系统，代码编辑、API 通信、权限管理、会话管理等核心模块完全不受影响。唯一副作用是有 companion 时 system prompt 多注入约 5 行提示词（告诉模型旁边有只宠物）。
+
+### 重新抽卡（换 buddy）
+
+你的 buddy 由 `hash(userId + SALT)` 确定性生成——同一 userId + SALT 永远得到同一只。想换一只需要改种子：
+
+```bash
+# 1. 修改 SALT（数字随便换）
+sed -i "s/const SALT = .*/const SALT = 'friend-2026-新数字'/" src/buddy/companion.ts
+
+# 2. 清除旧 companion 数据
+#    Linux / macOS:
+bun -e "const fs=require('fs'),p=require('os').homedir()+'/.claude.json';
+const c=JSON.parse(fs.readFileSync(p,'utf-8'));delete c.companion;
+fs.writeFileSync(p,JSON.stringify(c,null,2));console.log('cleared')"
+
+#    Windows (PowerShell):
+bun -e "const fs=require('fs'),p=require('os').homedir()+'\\.claude.json';const c=JSON.parse(fs.readFileSync(p,'utf-8'));delete c.companion;fs.writeFileSync(p,JSON.stringify(c,null,2));console.log('cleared')"
+
+# 3. 重启并输入 /buddy
+bun run dev
+```
+
+### 暴力搜索最稀有的 buddy
+
+不想靠运气？可以用脚本预先搜索哪个 SALT 值能出 Legendary 甚至 Shiny Legendary。
+
+**第一步：获取你的 userId**
+
+```bash
+# Linux / macOS
+grep userID ~/.claude.json
+
+# Windows (PowerShell)
+Select-String userID $env:USERPROFILE\.claude.json
+```
+
+**第二步：运行搜索脚本**
+
+将下面脚本保存为 `search-buddy.mjs`，把 `uid` 替换为你的真实 userId：
+
+```javascript
+// search-buddy.mjs — 用 bun 运行: bun run search-buddy.mjs
+const SPECIES = ['duck','goose','blob','cat','dragon','octopus','owl','penguin',
+  'turtle','snail','ghost','axolotl','capybara','cactus','robot','rabbit','mushroom','chonk'];
+const RARITIES = ['common','uncommon','rare','epic','legendary'];
+const W = {common:60,uncommon:25,rare:10,epic:4,legendary:1};
+const EYES = ['·','✦','×','◉','@','°'];
+const HATS = ['none','crown','tophat','propeller','halo','wizard','beanie','tinyduck'];
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function bunHash(s) { return Number(BigInt(Bun.hash(s)) & 0xffffffffn); }
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+function rollRarity(rng) {
+  let r = rng() * 100;
+  for (const x of RARITIES) { r -= W[x]; if (r < 0) return x; }
+  return 'common';
+}
+
+// ⚠️ 替换为你的真实 userId
+const uid = '你的userID';
+const MAX = 500000;
+
+console.log(`Searching ${MAX} salts for user: ${uid.slice(0,16)}...`);
+console.log('---');
+
+let legendaryCount = 0;
+for (let i = 0; i < MAX; i++) {
+  const salt = 'friend-2026-' + i;
+  const rng = mulberry32(bunHash(uid + salt));
+  const rarity = rollRarity(rng);
+  if (rarity !== 'legendary') continue;
+  legendaryCount++;
+  const species = pick(rng, SPECIES);
+  const eye = pick(rng, EYES);
+  const hat = pick(rng, HATS);
+  const shiny = rng() < 0.01;
+  const tag = shiny ? '✦ SHINY ' : '';
+  console.log(`${tag}LEGENDARY ${species} — eye:${eye} hat:${hat} — salt: "${salt}"`);
+  if (shiny) {
+    console.log(`\n🎉 SHINY LEGENDARY found! Total legendaries scanned: ${legendaryCount}`);
+    console.log(`👉 Use this salt: ${salt}`);
+    process.exit(0);
+  }
+}
+console.log(`\nScanned ${MAX} salts, found ${legendaryCount} legendaries (no shiny). Try increasing MAX.`);
+```
+
+```bash
+# ⚠️ 必须用 bun 运行（依赖 Bun.hash，Node.js 无此函数）
+bun run search-buddy.mjs
+```
+
+**第三步：应用找到的 salt**
+
+```bash
+# 替换 SALT（以找到的值为例）
+sed -i "s/const SALT = .*/const SALT = 'friend-2026-47899'/" src/buddy/companion.ts
+
+# Windows (PowerShell) 等效命令：
+(Get-Content src/buddy/companion.ts) -replace "const SALT = .*", "const SALT = 'friend-2026-47899'" | Set-Content src/buddy/companion.ts
+```
+
+然后清 companion、重启、`/buddy` 即可。
+
+> **跨平台说明**：搜索脚本依赖 `Bun.hash()` 内置函数，此函数在 **Linux、macOS、Windows** 上的 Bun 运行时中行为一致，搜索结果跨平台通用。但 `sed` 命令在 Windows 上不可用，请使用上方提供的 PowerShell 等效命令。
+
+### 只改名字和个性描述
+
+不想换物种，只是想给宠物改个名字？直接编辑 config 文件：
+
+```bash
+# 查看当前 companion
+grep -A5 companion ~/.claude.json      # Linux/macOS
+Select-String companion $env:USERPROFILE\.claude.json   # Windows
+
+# 手动编辑 ~/.claude.json 中的 companion.name 和 companion.personality 字段即可
+```
+
+> **注意**：外观（物种、稀有度、眼型、帽子）由 userId hash 实时计算，不存在 config 中，无法通过编辑 config 伪造。这是原版的防作弊设计。
+
+## 技术实现细节
+
+### 核心代码改进
+
+#### 1. 环境变量优先级系统 (`request-adapter.ts:30-56`)
+```typescript
+// Determine max_tokens value for OpenAI-compatible APIs
+// Priority (from highest to lowest):
+// 1. CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI - OpenAI-specific override
+// 2. CLAUDE_CODE_MAX_OUTPUT_TOKENS - Global setting for all APIs
+// 3. anthropicParams.max_tokens - From original Anthropic request
+// 4. Default 8192 - Fallback value
+let maxTokens = 8192;
+
+// 1. Check for OpenAI-specific environment variable (highest priority)
+if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI) {
+  const openaiMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI, 10);
+  if (!isNaN(openaiMaxTokens) && openaiMaxTokens > 0) {
+    maxTokens = openaiMaxTokens;
+  }
+}
+// 2. Check for global environment variable
+else if (process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+  const envMaxTokens = parseInt(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 10);
+  if (!isNaN(envMaxTokens) && envMaxTokens > 0) {
+    maxTokens = envMaxTokens;
+  }
+}
+// 3. Use anthropicParams.max_tokens if no environment variables set
+else if (anthropicParams.max_tokens !== undefined && anthropicParams.max_tokens > 0) {
+  maxTokens = anthropicParams.max_tokens;
+}
+// 4. Default to 8192 (already set)
+```
+
+#### 2. 消息序列处理优化 (`request-adapter.ts:124-200`)
+```typescript
+function postprocessMessages(messages: any[]): any[] {
+  const result: any[] = [];
+
+  for (const msg of messages) {
+    // Skip completely empty assistant messages (thinking-only after conversion)
+    if (
+      msg.role === 'assistant' &&
+      !msg.content &&
+      (!msg.tool_calls || msg.tool_calls.length === 0)
+    ) {
+      continue;
+    }
+
+    const prev = result[result.length - 1];
+
+    // Merge consecutive assistant messages
+    if (prev && prev.role === 'assistant' && msg.role === 'assistant') {
+      // Merge text content
+      const prevText = prev.content || '';
+      const curText = msg.content || '';
+      if (curText) {
+        prev.content = prevText ? prevText + '\n' + curText : curText;
+      }
+      // Merge tool_calls arrays
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        if (!prev.tool_calls) {
+          prev.tool_calls = [];
+        }
+        prev.tool_calls.push(...msg.tool_calls);
+      }
+      continue;
+    }
+
+    // Merge consecutive user messages (can happen after tool_result expansion)
+    if (prev && prev.role === 'user' && msg.role === 'user') {
+      // ... merge logic ...
+      continue;
+    }
+
+    // Normal case: different role, just push
+    result.push({ ...msg });
+  }
+
+  return result;
+}
+```
+
+#### 3. 交互式配置组件 (`OpenAICompatSetup.tsx`)
+- **预设提供商选择**：优云智算、DeepSeek、Ollama、自定义URL
+- **智能URL处理**：自动添加`/v1`后缀
+- **配置验证**：输入验证和错误提示
+- **配置持久化**：自动保存到`~/.claude.json`
+
+### 新增文件列表
+
+| 文件 | 用途 | 改进点 |
+|------|------|--------|
+| `.env.example` | 环境变量模板 | 180+行完整配置示例 |
+| `ENVIRONMENT_VARIABLES.md` | 环境变量文档 | 58个配置项详细说明 |
+| `BAT_STARTUP_GUIDE.md` | Windows启动指南 | 针对Windows用户的详细指南 |
+| `启动说明.txt` | 中文使用说明 | 简化上手流程 |
+| `TUI启动器.bat` | Windows启动脚本 | 一键启动TUI界面 |
+| `桌面版启动器.bat` | 桌面版启动脚本 | 一键启动Electron桌面版 |
+| `test-electron.js` | Electron测试 | 桌面版功能测试 |
+| `setup-env.sh` | 环境设置脚本 | 自动化环境配置 |
+
+### 修改的关键文件
+
+| 文件 | 原项目 | 本版本 | 改进内容 |
+|------|--------|--------|----------|
+| `src/services/api/openai-compat/request-adapter.ts` | 简单格式转换 | 完整适配器 | 添加max_tokens优先级、消息序列处理 |
+| `src/services/api/client.ts` | 基础提供商选择 | 增强提供商选择 | 添加OpenAI兼容API分支，支持环境变量检测 |
+| `src/components/OpenAICompatSetup.tsx` | 基础配置界面 | 增强配置界面 | 添加预设提供商、智能URL处理、配置验证 |
+| `src/utils/envUtils.ts` | 基础环境工具 | 增强环境工具 | 添加`isEnvTruthy`、`parseEnvVars`等工具函数 |
+| `package.json` | 基础脚本 | 增强脚本 | 添加`desktop`、`desktop:dev`等桌面版脚本 |
+
+### 解决的具体问题
+
+#### 问题1：国产模型API错误
+- **原因**：国产模型对token限制严格，原项目直接使用anthropicParams.max_tokens
+- **解决方案**：添加max_tokens优先级系统，支持环境变量覆盖
+- **代码位置**：`request-adapter.ts:30-56`
+
+#### 问题2：消息序列兼容性
+- **原因**：Anthropic允许连续相同角色消息，但OpenAI格式要求严格交替
+- **解决方案**：`postprocessMessages()`函数合并连续相同角色消息
+- **代码位置**：`request-adapter.ts:124-200`
+
+#### 问题3：配置管理混乱
+- **原因**：原项目缺少统一的配置管理系统
+- **解决方案**：创建完整的`.env`文件系统和配置文档
+- **相关文件**：`.env.example`、`ENVIRONMENT_VARIABLES.md`
+
+#### 问题4：Windows支持不足
+- **原因**：原项目主要针对Unix-like系统
+- **解决方案**：添加bat启动脚本、桌面版支持、路径处理优化
+- **相关文件**：`TUI启动器.bat`、`桌面版启动器.bat`、`test_path.bat`
+
+### 性能优化
+
+1. **上下文窗口优化**：
+   - `CLAUDE_CODE_MAX_CONTEXT_TOKENS`：控制最大上下文token数
+   - `CLAUDE_CODE_AUTO_COMPACT_WINDOW`：自动压缩阈值
+
+2. **输出限制优化**：
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS`：全局输出限制
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPENAI`：OpenAI特定限制
+
+3. **超时控制**：
+   - `API_TIMEOUT_MS`：API请求超时时间（默认10分钟）
+
+4. **流量控制**：
+   - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`：禁用非必要流量
+
+### 扩展性设计
+
+1. **模块化适配器**：OpenAI兼容适配器独立模块，易于扩展新提供商
+2. **配置驱动**：所有参数通过环境变量配置，无需修改代码
+3. **优先级系统**：清晰的配置优先级，避免冲突
+4. **向后兼容**：保持与原项目的API兼容性
+
+## Hookify插件Windows兼容性修复
+
+### 问题概述
+Hookify插件在Windows系统上无法正常工作，主要问题包括：
+1. **Python命令不兼容**：Windows使用`python`命令而非`python3`
+2. **输入数据格式不匹配**：Claude Code传递的数据格式与rule_engine期望的格式不一致
+3. **hook_event_name字段缺失**：缺少必要的事件类型标识字段
+
+### 根本原因分析
+1. **平台差异**：Windows与Unix环境在Python命令名称上的差异
+2. **数据格式不一致**：Claude Code传递的输入数据格式与rule_engine期望的格式不匹配
+3. **事件类型识别问题**：`hook_event_name`字段对于rule_engine正确处理不同事件类型是必需的
+
+### 修复措施
+
+#### 1. Python命令修复
+- **修改文件**：所有`hooks.json`文件
+- **修复内容**：将`python3`命令改为`python`
+- **影响范围**：所有hook事件类型（PreToolUse、PostToolUse、Stop、UserPromptSubmit）
+
+#### 2. Shebang修复
+- **修改文件**：所有hook脚本文件（`.py`文件）
+- **修复内容**：将shebang从`#!/usr/bin/env python3`改为`#!/usr/bin/env python`
+- **影响文件**：
+  - `pretooluse.py`
+  - `posttooluse.py`
+  - `stop.py`
+  - `userpromptsubmit.py`
+
+#### 3. 输入数据格式修复
+所有hook脚本都进行了输入数据格式标准化：
+
+**pretooluse.py修复**：
+- 将顶层`command`字段移动到`tool_input.command`
+- 设置`hook_event_name: 'PreToolUse'`
+- 根据`tool_name`确定事件类型（`bash`或`file`）
+
+**posttooluse.py修复**：
+- 将顶层`command`字段移动到`tool_input.command`
+- 设置`hook_event_name: 'PostToolUse'`
+
+**stop.py修复**：
+- 设置`hook_event_name: 'Stop'`
+- 使用`conditions`格式规则进行匹配
+
+**userpromptsubmit.py修复**：
+- 设置`hook_event_name: 'UserPromptSubmit'`
+
+#### 4. 缓存同步
+- 更新所有缓存目录中的相关文件
+- 确保修改在所有缓存版本中生效
+
+### 修改文件列表（详细）
+
+Hookify插件修复涉及4个不同的缓存目录，每个目录包含相同的6个文件类型，总计24个文件：
+
+#### 1. Python命令修复（hooks.json文件）
+| 缓存目录 | 文件路径 | 修改内容 |
+|----------|----------|----------|
+| 104d39be10b7 | `~/.claude/plugins/cache/claude-plugins-official/hookify/104d39be10b7/hooks/hooks.json` | `python3` → `python`（4处） |
+| 7ed523140f50 | `~/.claude/plugins/cache/claude-plugins-official/hookify/7ed523140f50/hooks/hooks.json` | `python3` → `python`（4处） |
+| 其他缓存目录 | `~/.claude/plugins/cache/claude-plugins-official/hookify/*/hooks/hooks.json` | `python3` → `python`（4处） |
+
+#### 2. Shebang修复（所有Python脚本）
+| 文件类型 | 修改内容 | 影响范围 |
+|----------|----------|----------|
+| `pretooluse.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+| `posttooluse.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+| `stop.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+| `userpromptsubmit.py` | `#!/usr/bin/env python3` → `#!/usr/bin/env python` | 所有缓存目录 |
+
+#### 3. 数据格式修复（所有hook脚本）
+| 文件类型 | 修复内容 | 关键代码修改 |
+|----------|----------|--------------|
+| `pretooluse.py` | 1. 移动`command`到`tool_input.command`<br>2. 设置`hook_event_name: 'PreToolUse'`<br>3. 事件类型识别逻辑 | `lines 45-53, 55-60` |
+| `posttooluse.py` | 1. 移动`command`到`tool_input.command`<br>2. 设置`hook_event_name: 'PostToolUse'` | `lines 44-50` |
+| `stop.py` | 1. 设置`hook_event_name: 'Stop'`<br>2. 使用`conditions`格式规则 | `lines 44-50` |
+| `userpromptsubmit.py` | 1. 设置`hook_event_name: 'UserPromptSubmit'` | `lines 44-50` |
+
+#### 4. 缓存目录统计
+| 缓存目录ID | 包含文件数 | 修改状态 |
+|------------|------------|----------|
+| 104d39be10b7 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+| 7ed523140f50 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+| 其他缓存目录1 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+| 其他缓存目录2 | 6个文件（1个json + 5个py） | ✅ 已修复 |
+
+**总计修改文件数**：24个文件（4个缓存目录 × 6个文件类型）
+
+#### 5. 文件修改统计摘要
+| 修改类型 | 影响文件数 | 修改内容摘要 |
+|----------|------------|--------------|
+| Python命令修复 | 4个文件 | `python3` → `python`（共16处修改） |
+| Shebang修复 | 16个文件 | `#!/usr/bin/env python3` → `#!/usr/bin/env python` |
+| 数据格式标准化 | 16个文件 | 添加`hook_event_name`字段，标准化输入数据格式 |
+| **总计** | **24个文件** | **涉及48处关键修改** |
+
+### 验证结果
+- ✅ `pretooluse.py`：能正确返回包含`systemMessage`的JSON
+- ✅ `posttooluse.py`：能正确返回包含`systemMessage`的JSON  
+- ✅ `stop.py`：能正确返回包含`systemMessage`的JSON（需使用`conditions`格式规则）
+- ✅ `userpromptsubmit.py`：能正确返回包含`systemMessage`的JSON
+- ✅ 规则加载和匹配功能正常
+- ✅ 所有hook事件类型都能正常工作
+
+# 示例：pretooluse.py中的格式标准化
+normalized_data = input_data.copy()
+
+# 如果command在顶层但不在tool_input中，移动到tool_input
+if 'command' in input_data and 'tool_input' not in input_data:
+    normalized_data['tool_input'] = {'command': input_data['command']}
+
+# 确保hook_event_name字段已设置
+if 'hook_event_name' not in normalized_data:
+    normalized_data['hook_event_name'] = 'PreToolUse'
+```
+
+#### 2. 事件类型识别
+```python
+# 根据tool_name确定事件类型
+event = None
+if tool_name == 'Bash':
+    event = 'bash'
+elif tool_name in ['Edit', 'Write', 'MultiEdit']:
+    event = 'file'
+```
+
+#### 3. 错误处理策略
+- 所有hook脚本都包含完整的异常处理
+- 任何错误都不会阻止Claude Code的正常操作
+- 错误信息通过`systemMessage`字段返回
+
+### 修复效果
+1. **跨平台兼容性**：Hookify插件现在可以在Windows系统上正常工作
+2. **数据格式一致性**：输入数据格式与rule_engine期望的格式完全匹配
+3. **事件处理准确性**：所有hook事件类型都能被正确识别和处理
+4. **错误恢复能力**：完善的错误处理确保不会因hook错误影响主程序
+
+### 注意事项
+1. **缓存更新**：修改已同步到所有缓存目录，确保一致性
+2. **重启要求**：可能需要重启Claude Code以使hook更改生效
+3. **规则编写**：用户编写的hook规则需要遵循正确的格式要求
+
+### 总结
+Hookify插件的Windows兼容性修复解决了平台差异、数据格式不匹配和事件类型识别等关键问题，确保了插件在Windows环境下的完整功能。修复涉及24个文件的修改，包括Python命令修复、Shebang修复和数据格式标准化，为Windows用户提供了完整的hook功能支持。
+
+# 示例：pretooluse.py中的格式标准化
+normalized_data = input_data.copy()
+
+# 如果command在顶层但不在tool_input中，移动到tool_input
+if 'command' in input_data and 'tool_input' not in input_data:
+    normalized_data['tool_input'] = {'command': input_data['command']}
+
+# 确保hook_event_name字段已设置
+if 'hook_event_name' not in normalized_data:
+    normalized_data['hook_event_name'] = 'PreToolUse'
+```
+
+# 根据tool_name确定事件类型
+event = None
+if tool_name == 'Bash':
+    event = 'bash'
+elif tool_name in ['Edit', 'Write', 'MultiEdit']:
+    event = 'file'
+```
+
+## 许可证
+
+本项目仅供学习研究用途。
+
+## 致谢
+
+本项目基于多个开源项目的代码和思想，特别感谢以下项目：
+
+### 核心基础项目
+- **[Claude Code CLI](https://claude.com/claude-code)** - Anthropic官方的Claude Code CLI工具，提供了基础架构和功能
+- **[adoresever/cloud-code](https://github.com/adoresever/cloud-code)** - 本项目的主要基础，提供了OpenAI兼容API适配层和微信远程控制桥接的核心实现
+
+### 相关衍生项目
+- **[instructkr/claw-code](https://github.com/instructkr/claw-code.git)** - 提供了完全重构的相关实现思路和技术参考
+- **[AICoderTudou/claude-code-tudou](https://github.com/AICoderTudou/claude-code-tudou.git)** - 在国产模型适配和启动优化方面提供了有价值的参考
+- **[T8mars/claude-code-t8](https://github.com/T8mars/claude-code-t8)** - 在国产模型适配和启动优化方面提供了有价值的参考
+
+### 技术栈和工具
+- **Bun** - 高性能的JavaScript运行时
+- **React + Ink** - 终端UI框架
+- **TypeScript** - 类型安全的JavaScript超集
+- **OpenAI兼容API生态** - DeepSeek、MiniMax、Ollama、Qwen等国产模型提供商
+
+### 社区贡献
+感谢所有为这些项目做出贡献的开发者，以及提供反馈和建议的用户。开源社区的协作精神使得这个项目能够不断完善和进步。
+
+### 特别说明
+本项目是在上述开源项目的基础上进行的二次开发和优化，主要改进点包括：
+1. 完整的`.env`配置系统优化
+2. 国产模型深度兼容性适配
+3. 环境变量优先级系统
+4. Windows平台支持增强
+5. 项目文档完善
+
+我们尊重所有原项目的许可证和版权，本项目仅供学习研究用途。
+
+---
+
+**版本信息**：增强版 v1.0.5  
+**更新日期**：2026-04-20  
+**主要改进**：五大核心改进 + Hookify插件Windows兼容性修复 + WeChat CLI集成与问题诊断 + MemPalace插件版本同步与配置优化 + Claude-mem记忆系统路径问题解决方案 + Memory Tools插件完全整合与增强，全面优化国产模型兼容性、插件兼容性、记忆系统稳定性和工具生态系统
+
+### 七、MemPalace 插件版本同步与配置优化
+
+#### 问题发现
+在集成 MemPalace 记忆系统时发现以下问题：
+1. **版本号不同步**：`plugin.json` 版本为 3.0.14，而 `pyproject.toml` 版本为 3.3.0
+2. **环境配置问题**：MCP 服务器配置使用系统 Python 环境，而非项目虚拟环境
+3. **技能系统环境优先级**：技能系统无法自动识别项目环境优先级
+
+#### 解决方案
+**1. 版本号同步**
+- 更新 `plugin.json` 版本号：`3.0.14` → `3.3.0`
+- 确保插件版本与 Python 包版本保持一致
+
+**2. MCP 服务器配置优化**
+```json
+// 更新后的 MCP 服务器配置（使用项目虚拟环境）
+"mcpServers": {
+  "mempalace": {
+    "command": "cmd.exe",
+    "args": [
+      "/c",
+      "C:\\Users\\Administrator\\Desktop\\projects\\claudecode\\yuanmaziyuan\\cloud-code-rewrite\\cloud-code-main\\mempalace\\mempalace\\start_mempalace_mcp.bat"
+    ]
+  }
+}
+```
+
+**3. 智能环境选择策略**
+创建了智能包装脚本，实现环境优先级策略：
+- `start_mempalace_mcp.bat` - Windows 启动脚本
+- `smart_mempalace.sh` - 智能环境选择脚本
+- `run_mempalace_for_skill.sh` - 技能系统专用脚本
+
+**环境优先级**：
+1. **项目虚拟环境**（首选）：使用项目中的 mempalace 3.3.0
+2. **系统环境**（备选）：使用系统安装的 mempalace
+3. **自动降级**：如果项目环境不可用，自动回退到系统环境
+
+# 检查版本一致性
+python -c "import mempalace; print('Python包版本:', mempalace.__version__)"
+# 输出: Python包版本: 3.3.0
+
+# plugin.json 版本已同步为 3.3.0
+```
+
+**2. 虚拟环境激活脚本**
+```batch
+@echo off
+REM start_mempalace_mcp.bat
+set VENV_PATH=%~dp0venv
+call "%VENV_PATH%\Scripts\activate.bat" && python -m mempalace.mcp_server
+```
+
+**3. 智能环境选择逻辑**
+```bash
+# smart_mempalace.sh 核心逻辑
+if [ -f "$PROJECT_VENV_PATH/Scripts/activate" ]; then
+    source "$PROJECT_VENV_PATH/Scripts/activate"
+    echo "Using project mempalace (version: 3.3.0)"
+    python -m mempalace.mcp_server "$@"
+elif command -v mempalace >/dev/null 2>&1; then
+    echo "Using system mempalace"
+    mempalace "$@"
+fi
+```
+
+#### 解决的问题
+- ✅ **版本同步问题**：插件版本与 Python 包版本保持一致
+- ✅ **环境配置问题**：MCP 服务器使用项目虚拟环境
+- ✅ **技能系统优先级**：技能自动使用项目环境
+- ✅ **向后兼容性**：保持系统环境作为备选方案
+
+#### 使用指南
+
+**1. 验证配置**
+```bash
+# 检查版本
+cd mempalace/mempalace
+source venv/Scripts/activate
+python -c "import mempalace; print('版本:', mempalace.__version__)"
+
+# 测试 MCP 服务器
+cmd.exe /c start_mempalace_mcp.bat --help
+```
+
+**2. 使用技能系统**
+- `/mempalace:init` - 初始化记忆宫殿（自动使用项目环境）
+- `/mempalace:mine` - 挖掘项目记忆（自动使用项目环境）
+- `/mempalace:search` - 搜索记忆（自动使用项目环境）
+
+**3. 手动调用**
+```bash
+# 使用项目环境
+cd mempalace/mempalace
+source venv/Scripts/activate
+mempalace init
+
+# 或使用智能脚本
+./run_mempalace_for_skill.sh init
+```
+
+### 八、Claude-mem 记忆系统路径问题分析与解决方案
+
+#### 发现的编码版本
+通过分析发现，同一项目生成了多个不同编码版本的目录：
+1. `C--Users-Administrator-Desktop-projects-claudecode------cloud-code-rewrite-cloud-code-main` (错误编码，缺少`yuanmaziyuan`)
+2. `C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main` (正确编码)
+3. `C--Users-Administrator-Desktop-projects-claudecode-cloud-code-rewrite-cloud-code-main` (缺少`yuanmaziyuan`)
+4. `C--Users-Administrator-Desktop-projects-claudecode-ymzy-cloud-code-rewrite-cloud-code-main` (使用缩写)
+
+#### 当前配置状态
+**正确的配置位置**：
+- `C:\Users\Administrator\Desktop\projects\claudecode\yuanmaziyuan\cloud-code-rewrite\cloud-code-main\claude-mem\.claude-mem.json`
+
+**正确的记忆存储位置**：
+- `C:\Users\Administrator\.claude\projects\C--Users-Administrator-Desktop-projects-claudecode-yuanmaziyuan-cloud-code-rewrite-cloud-code-main\memory\`
+
+#### 预防措施
+1. **路径标准化**：确保项目使用稳定、一致的路径
+2. **编码验证**：检查 Claude Code 生成的项目目录编码是否正确
+3. **定期检查**：定期查看 `.claude/projects/` 目录，发现异常编码及时处理
+4. **配置位置检查**：确保 `.claude-mem.json` 保存在项目根目录的 `claude-mem/` 子目录中
+
+#### 恢复策略
+1. **始终备份**：在进行记忆操作前创建完整备份
+2. **保留历史**：不要立即删除旧目录，先重命名观察
+3. **文档记录**：记录整合过程和决策原因
+
+#### 应用场景
+**何时需要整合记忆**：
+1. 发现记忆文件分散在多个编码目录中
+2. 记忆内容不完整或重复
+3. Claude Code 会话使用错误的记忆路径
+4. 项目路径发生变化后
+
+**整合后的好处**：
+1. **统一管理**：所有记忆集中存储
+2. **完整历史**：合并分散的记忆片段
+3. **避免冲突**：消除重复和矛盾信息
+4. **提高效率**：通过统一索引快速查找
+
+### 本次更新详细内容
+
+#### 1. WeChat CLI 集成与问题诊断
+- **集成完成**：成功集成 WeChat CLI 本地微信数据查询工具
+- **虚拟环境配置**：已创建完整的 Python 虚拟环境并安装所有依赖
+- **启动脚本**：提供 Windows 和 Bash 启动脚本
+- **完整文档**：包含使用指南、快速参考、项目集成说明等
+- **问题诊断**：发现并记录了数据库路径格式不一致问题
+
+#### 2. 数据库路径格式问题发现与文档更新
+**发现问题**：
+- 密钥文件使用 `db_storage\` 前缀，部分代码使用无前缀路径
+- 导致 `contacts --detail`、`members`、`favorites`、`new-messages`、`unread` 命令无法正常工作
+
+**文档更新**：
+- 更新了所有相关文档（README.md、README_CN.md、QUICK_REFERENCE.md 等）
+- 添加了详细的问题描述和临时解决方案
+- 提供了需要修复的具体文件位置和行号
+
+#### 3. 项目文档完善
+- 在项目 README 中添加了 WeChat CLI 集成说明
+- 更新了项目结构图，包含 wechat-cli 目录
+- 创建了详细的问题报告和文档更新总结
+
+#### 4. 持续改进
+- 保持与原有五大核心改进的兼容性
+- 确保 Hookify 插件 Windows 兼容性修复不受影响
+- 为后续代码修复提供了明确的技术指导
+
+### 九、集成自动记忆保存功能
+
+**新增功能**：
+1. **自动记忆保存集成**：
+   - 将 `python claude-mem-auto-save.py --continuous --interval 300` 命令集成到 `TUI启动器.bat`
+   - 实现 Claude Code 启动时自动运行记忆保存服务
+   - 每5分钟自动扫描并保存会话到 MemPalace
+   - 注：此功能已更新为python claude-readable-session-saver.py --max-files 10，启动时自动保存最近10轮会话至记忆。
+
+2. **一体化启动体验**：
+   ```bash
+   # 只需运行一个命令，同时启动 Claude Code 和记忆保存服务
+   TUI启动器.bat
+   ```
+
+3. **智能服务管理**：
+   - **自动检测**：检查 Python 和脚本依赖
+   - **后台运行**：记忆保存服务在后台运行，不影响主程序
+   - **优雅清理**：Claude Code 关闭后自动停止记忆保存服务
+   - **状态报告**：提供清晰的启动和关闭状态信息
+
+4. **完整文档支持**：
+   - `TUI_LAUNCHER_UPDATE.md` - 详细更新说明和技术细节
+   - `AUTO_MEMORY_SAVER_LAUNCHER.md` - 完整使用指南和配置选项
+   - `claude-mem-auto-save.py` - 自动记忆保存脚本源代码
+
+5. **技术优势**：
+   - **无缝集成**：与现有启动流程完美结合
+   - **用户友好**：清晰的提示信息和智能错误处理
+   - **可靠稳定**：进程监控和自动清理确保系统稳定性
+   - **向后兼容**：条件不满足时跳过服务，不影响原有功能
+
+**解决的问题**：
+- 手动运行记忆保存命令的繁琐
+- 服务生命周期管理复杂
+- 用户需要记住额外命令和参数
+- 服务异常时缺乏自动恢复
+
+**使用效果**：
+```
+运行 TUI启动器.bat → 自动启动记忆保存 → 启动 Claude Code → 自动保存会话 → 关闭时自动清理
+```
+
+现在用户只需运行 `TUI启动器.bat` 即可享受完整的 Claude Code 体验，包括自动记忆保存功能。
+
+## 📚 项目文档
+
+### 文档目录结构
+
+项目提供了完整的文档系统，位于 `docs/` 目录下：
+
+```
+docs/
+├── README.md                    # 文档目录说明
+├── solutions/                   # 技术解决方案文档
+│   └── claude-mem-binary-fix/  # claude-mem插件二进制文件问题解决方案
+├── architecture/                # 架构设计文档
+├── api/                        # API文档
+├── deployment/                 # 部署指南
+├── development/                # 开发指南
+└── troubleshooting/            # 故障排除手册
+```
+
+### 文档分类说明
+
+1. **技术解决方案** (`docs/solutions/`)
+   - 记录项目中遇到的具体技术问题和解决方案
+   - 包含问题分析、解决方案、实施步骤和验证方法
+
+2. **架构设计** (`docs/architecture/`)
+   - 系统架构图、组件设计、技术选型说明
+   - 设计决策记录和演进规划
+
+3. **API文档** (`docs/api/`)
+   - OpenAI兼容API适配器接口文档
+   - WeChat Bridge API文档
+   - 命令行接口说明
+
+4. **部署指南** (`docs/deployment/`)
+   - 环境要求、部署步骤、配置说明
+   - 监控和维护指南
+
+5. **开发指南** (`docs/development/`)
+   - 开发环境搭建、代码规范、测试指南
+   - 贡献流程和代码审查指南
+
+6. **故障排除** (`docs/troubleshooting/`)
+   - 常见错误及解决方案
+   - 调试方法和日志分析
+   - 紧急恢复流程
+
+### 与记忆系统的关系
+
+项目文档 (`docs/`) 与用户记忆系统 (`~/.claude/.../memory/`) 有明确分工：
+
+| 方面 | 项目文档 (`docs/`) | 用户记忆 (`memory/`) |
+|------|-------------------|---------------------|
+| **位置** | 项目代码目录中 | 用户配置目录中 |
+| **内容** | 技术解决方案、架构文档 | 个人工作记忆、经验总结 |
+| **版本控制** | 是，Git管理 | 否，个人存储 |
+| **共享性** | 团队共享 | 个人使用 |
+| **目的** | 项目技术文档 | 个人工作效率提升 |
+
+### 使用建议
+
+1. **新成员入门**：从 `docs/development/` 开始，了解开发环境和代码规范
+2. **解决问题**：查看 `docs/solutions/` 和 `docs/troubleshooting/`
+3. **系统理解**：阅读 `docs/architecture/` 了解系统设计
+4. **API开发**：参考 `docs/api/` 进行接口开发
+5. **部署运维**：按照 `docs/deployment/` 进行环境部署
+
+### 文档维护
+
+- 保持文档与代码同步更新
+- 重要技术经验及时整理到文档中
+- 定期review和更新文档内容
+- 欢迎贡献新的文档和改进建议
+
+详细文档请查看 [docs/README.md](docs/README.md)。
+
+## 🛠️ 记忆系统诊断工具
+
+### 工具概述
+
+# 简单检查
+python memory_diagnosis.py
+
+# 完整诊断报告
+python memory_diagnosis.py report
+
+# 显示修复计划
+python memory_diagnosis.py fix
+```
+
+#### 直接使用工具
+```bash
+cd memory-diagnosis-tool
+
+# 简单检查
+python memory_diagnosis_cli.py
+
+# 完整诊断报告
+python memory_diagnosis_cli.py report
+
+# 显示修复计划
+python memory_diagnosis_cli.py fix
+```
+
+### 作为Claude Code技能使用
+
+记忆系统诊断工具已安装为Claude Code技能，可以通过以下命令触发：
+
+#### 中文触发词
+- `/检查记忆系统`
+- `/记忆系统诊断`
+- `/检查记忆完整性`
+- `/检查记忆索引`
+- `/记忆系统维护`
+
+#### 英文触发词
+- `/memory system check`
+- `/memory diagnosis`
+
+#### 技能使用示例
+```bash
+# 基本检查（默认）
+/检查记忆系统
+
+# 生成详细报告
+/检查记忆系统 --action report
+
+# 显示修复计划
+/检查记忆系统 --action fix-plan
+
+# 指定记忆目录
+/检查记忆系统 --memory-dir "/path/to/your/memory"
+```
+
+### 工具优势
+
+| 对比项 | 大模型手动检查 | 记忆系统诊断工具 |
+|--------|----------------|------------------|
+| **准确性** | 容易出错 | 100%准确 |
+| **Token消耗** | 消耗大量token | 不消耗token |
+| **速度** | 慢，依赖网络 | 快，本地运行 |
+| **可重复性** | 每次结果可能不同 | 结果一致 |
+| **问题发现** | 可能遗漏 | 全面检查 |
+
+### 实际应用场景
+
+1. **定期维护**：每周运行一次检查，确保记忆系统健康
+2. **添加新记忆后检查**：创建新记忆文件后立即检查
+3. **项目交接时检查**：在项目交接时检查记忆系统完整性
+4. **故障排查**：当记忆系统出现问题时进行诊断
+
+### 文档
+- `memory-diagnosis-tool/README.md` - 工具概述和快速开始
+- `memory-diagnosis-tool/README_MEMORY_DIAGNOSIS.md` - 详细使用指南
+- `memory-diagnosis-tool/CLAUDE_CODE_SKILL_USAGE.md` - Claude Code技能使用指南
+
+# 简单检查
+python memory_diagnosis.py
+
+# 完整诊断报告
+python memory_diagnosis.py report
+
+# 显示修复计划
+python memory_diagnosis.py fix
+```
+
+# 简单检查
+python memory_diagnosis_cli.py
+
+# 完整诊断报告
+python memory_diagnosis_cli.py report
+
+# 显示修复计划
+python memory_diagnosis_cli.py fix
+```
+
+# 基本检查（默认）
+/检查记忆系统
+
+# 生成详细报告
+/检查记忆系统 --action report
+
+# 显示修复计划
+/检查记忆系统 --action fix-plan
+
+# 指定记忆目录
+/检查记忆系统 --memory-dir "/path/to/your/memory"
+```
+
+## 📋 更新日志
+
+### 2026-04-20 v1.0.5 - Memory Tools插件完全整合与增强
+- **Memory Tools插件完全整合**：将多个Python工具整合为统一架构的memory-tools插件
+- **7个分类问题完整解决方案**：实现智能检测、修复和验证功能
+- **增强版分类修复工具**：支持中文项目路径，智能处理编码问题
+- **向后兼容性设计**：确保与现有工具和脚本的兼容性
+- **完整文档系统**：提供详细的使用指南和API文档
+
+### 2026-04-19 v1.0.4 - 记忆系统分类问题完整解决方案
+- **记忆系统分类问题检测**：开发智能检测工具识别7类分类问题
+- **标准化命名约定**：建立统一的记忆文件命名规范
+- **批量修复功能**：支持一键修复所有分类问题
+- **验证报告生成**：自动生成修复验证报告
+- **预防机制**：添加分类问题预防检查
+
+### 2026-04-18 v1.0.3 - Memory Tools插件增强
+- **Memory Tools插件完善**：修复技能加载问题，完善文档和测试
+- **记忆系统诊断工具**：开发完整的记忆系统健康检查工具
+- **Claude Code技能集成**：将工具集成为Claude Code技能
+- **自动化检查**：实现记忆系统自动化检查和维护
+- **问题诊断流程**：建立系统化的问题诊断工作流程
+
+### 2026-04-17 v1.0.2 - 本地插件系统完善
+- **本地插件配置**：解决Claude Code本地插件技能加载问题
+- **插件注册机制**：完善本地插件的注册和发现机制
+- **技能系统优化**：优化技能加载优先级和冲突解决
+- **开发文档**：提供完整的本地插件开发指南
+- **测试验证**：建立插件功能的测试验证体系
+
+### 2026-04-16 v1.0.1 - 记忆系统增强
+- **记忆系统完整性检查**：开发系统化检查工具，发现未索引文件
+- **重复索引处理**：智能处理记忆系统中的重复索引问题
+- **自动化维护**：将重复性检查工作编程为自动化工具
+- **诊断工具bug修复**：修复记忆系统诊断工具中的统计错误
+- **技能集成经验**：将诊断工具集成为Claude Code技能
+
+### 2026-04-15 v1.0.0 - 基础版本
+- **项目初始化**：建立完整的项目结构和文档系统
+- **核心功能实现**：OpenAI兼容API适配器、WeChat桥接
+- **记忆系统集成**：自动记忆保存功能和TUI启动器
+- **插件系统**：支持本地插件和MCP服务器
+- **文档系统**：建立完整的项目文档体系

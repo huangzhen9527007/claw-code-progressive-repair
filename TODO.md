@@ -1,0 +1,68 @@
+# TODO
+
+> Maintained by **二次开发团队**
+
+## OpenAI-compat Adapter
+
+- [x] Request format conversion (system/messages/tools)
+- [x] Streaming SSE conversion (OpenAI → Anthropic events)
+- [x] Tool call support (bidirectional)
+- [x] Thinking model support (DeepSeek R1 / QwQ)
+- [x] Interactive setup UI (provider select + input)
+- [x] Config persistence (~/.claude.json)
+- [x] Auto-load config on startup
+- [x] URL smart handling (/v1 suffix)
+- [ ] Image/multimodal testing with third-party models
+- [ ] More provider presets
+- [ ] `/model` command to switch models without re-login
+
+## WeChat Bridge (iLink Bot)
+
+- [x] iLink protocol SDK (zero-dependency)
+- [x] QR code login + credential persistence
+- [x] Text message send/receive (auto-chunking)
+- [x] Image send/receive (CDN AES-128-ECB encrypt/decrypt)
+- [x] File send/receive (PDF/DOC/ZIP etc.)
+- [x] Video send/receive (CDN encrypt/decrypt)
+- [x] Voice receive (auto-transcribe via WeChat)
+- [x] Typing status ("正在输入中")
+- [x] 24h token auto-reconnect
+- [x] Long message chunking (1800 char threshold)
+- [ ] Multi-turn conversation support (--resume / session persistence)
+- [ ] Voice send (SILK encoding)
+- [ ] Thumbnail support for image/video upload
+- [ ] Slash commands in WeChat (/new, /model, /mode)
+- [ ] Multiple WeChat account support
+- [ ] Run as daemon (systemd / launchd)
+
+## Packages
+
+- [x] `url-handler-napi` — URL handler
+- [x] `modifiers-napi` — Modifier key detection
+- [x] `audio-capture-napi` — Audio capture
+- [x] `color-diff-napi` — Color diff (full TS implementation)
+- [x] `image-processor-napi` — Image processor
+
+## MemPalace 插件集成
+
+- [x] 版本号同步 (`plugin.json` 3.0.14 → 3.3.0)
+- [x] MCP 服务器配置优化（使用项目虚拟环境）
+- [x] 智能环境选择脚本创建
+- [x] 技能系统环境优先级实现
+- [x] 跨平台兼容性验证（Windows/Bash）
+- [x] 文档更新（README.md, RECORD.md, 记忆系统）
+- [ ] 自动化测试脚本
+- [ ] 配置验证工具
+- [ ] 版本检查自动化
+
+## MemPalace 插件集成
+
+- [x] 版本号同步 (`plugin.json` 3.0.14 → 3.3.0)
+- [x] MCP 服务器配置优化（使用项目虚拟环境）
+- [x] 智能环境选择脚本创建
+- [x] 技能系统环境优先级实现
+- [x] 跨平台兼容性验证（Windows/Bash）
+- [x] 文档更新（README.md, RECORD.md, 记忆系统）
+- [ ] 自动化测试脚本
+- [ ] 配置验证工具
+- [ ] 版本检查自动化

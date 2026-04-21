@@ -1,0 +1,12 @@
+{
+  "name": "memory-tools",
+  "version": "1.0.0",
+  "description": "Memory System Diagnosis Plugin for Claude Code",
+  "main": "src/memory_system_diagnosis_skill.py",
+  "scripts": {
+    "test": "python src/memory_system_diagnosis_skill.py --check"
+  },
+  "keywords": ["memory", "diagnosis", "claude-code", "plugin"],
+  "author": "Claude Code Assistant",
+  "license": "MIT"
+}
